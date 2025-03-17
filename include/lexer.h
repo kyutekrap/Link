@@ -16,6 +16,7 @@
 #include "../include/readenv.h"
 #include "../include/getmacro.h"
 #include "../include/mkfile.h"
+#include "../include/readinc.h"
 
 int lexer(const char *filename);
 

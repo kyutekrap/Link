@@ -6,6 +6,10 @@ int lexer(const char *filename) {
 
     Env env = readenv(fileProps.root);
 
+    if (fileProps.readDecor == -1) {
+        char **files = readinc(fileProps.root);
+    }
+
     FILE *file = fopen(filename, "r");
     if (file == NULL) return FILE_NOT_FOUND;
 
@@ -18,6 +22,7 @@ int lexer(const char *filename) {
             macroT = getmacro(fline);
         } else {
             if (out == NULL) {
+                fputs(MAIN, out);
                 char *outname = mkfile(fileProps.root);
                 if (outname[0] == '\0') return C_COMPILE_ERROR;
                 out = fopen(outname, "w");
@@ -30,7 +35,6 @@ int lexer(const char *filename) {
                         fputs(STEP_S, out);
                     }
                 }
-                fputs(MAIN, out);
             }
             fputs(fline, out);
         }
