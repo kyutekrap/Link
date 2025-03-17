@@ -12,10 +12,11 @@
 #include "../macro/step_e.h"
 #include "../macro/step_s.h"
 #include "../macro/main.h"
+#include "../macro/end.h"
 #include "../include/checkfile.h"
 #include "../include/readenv.h"
 #include "../include/getmacro.h"
-#include "../include/mkfile.h"
+#include "../include/delfile.h"
 #include "../include/readinc.h"
 
 int lexer(const char *filename);

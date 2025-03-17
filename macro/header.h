@@ -1,5 +1,5 @@
-#ifndef HEADER_D_H
-#define HEADER_D_H
+#ifndef HEADER_H
+#define HEADER_H
 
 #define HEADER "\
 #include<time.h>\n\

@@ -20,6 +20,9 @@ int main() {
         case C_COMPILE_ERROR:
             printf("C_COMPILE_ERROR");
             break;
+        case LACK_OF_CONTENT: 
+            printf("LACK_OF_CONTENT");
+            break;
         default:
             break;
     }

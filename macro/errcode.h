@@ -6,5 +6,6 @@
 #define FILE_NOT_FOUND -2
 #define MACRO_NOT_FOUND -3
 #define C_COMPILE_ERROR -4
+#define LACK_OF_CONTENT -5
 
 #endif

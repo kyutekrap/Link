@@ -1,7 +1,7 @@
-#include "../include/mkfile.h"
+#include "../include/delfile.h"
 
-// Create subdir and compressed file
-char *mkfile(char *root) {
+// Make subdir and delete output file
+char *delfile(char *root) {
     int rootLen = strlen(root);
     char subdir[rootLen+6];
     char *out = malloc((rootLen+12) * sizeof(char));
@@ -15,5 +15,6 @@ char *mkfile(char *root) {
     }
     strcpy(out, root);
     strcat(out, ".link\\out.c\0");
+    remove(out);
     return out;
 }
