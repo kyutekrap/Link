@@ -18,6 +18,7 @@
 #include "../include/getmacro.h"
 #include "../include/delfile.h"
 #include "../include/readinc.h"
+#include "../include/getdecor.h"
 
 int lexer(const char *filename);
 
