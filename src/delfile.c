@@ -1,20 +1,31 @@
 #include "../include/delfile.h"
 
 // Make subdir and delete output file
-char *delfile(char *root) {
+DelFile delfile(char *root) {
+    DelFile delFile = {0, ""};
+
     int rootLen = strlen(root);
+    delFile.file = malloc((rootLen+12) * sizeof(char));
+    if (delFile.file == NULL) {
+        delFile.errCode = MEMORY_ALLOCATION_FAILED;
+        return delFile;
+    }
+
     char subdir[rootLen+6];
-    char *out = malloc((rootLen+12) * sizeof(char));
     strcpy(subdir, root);
-    strcat(subdir, ".link\0");
+    strcat(subdir, ".link");
+
     struct stat st = {0};
     if (stat(subdir, &st) == -1) {
         if (_mkdir(subdir) == -1) {
-            return out;
+            delFile.errCode = FOLDER_CREATION_FAILED;
+            return delFile;
         }
     }
-    strcpy(out, root);
-    strcat(out, ".link\\out.c\0");
-    remove(out);
-    return out;
+
+    strcpy(delFile.file, root);
+    strcat(delFile.file, ".link\\out.c");
+    remove(delFile.file);
+
+    return delFile;
 }

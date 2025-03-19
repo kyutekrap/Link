@@ -3,14 +3,22 @@
 
 #include <ctype.h>
 #include <string.h>
+#include "../macro/errcode.h"
 
 enum MacroT {
     flow,
     step,
-    invalid
+    invalid,
+    errCode
 };
 typedef enum MacroT MacroT;
 
-MacroT getmacro(const char *fline);
+struct GetMacro {
+    MacroT macroT;
+    int errCode;
+};
+typedef struct GetMacro GetMacro;
+
+GetMacro getmacro(const char *fline);
 
 #endif

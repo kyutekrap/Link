@@ -4,10 +4,14 @@
 // Detect if main.link (Otherwise, read decorators)
 // Detect project root
 File checkfile(const char *filename) {
-    File file = {0, 0, ""};
+    File file = {0, 0, "", 0};
 
     int fnameLen = 4;
     char *fname = malloc(fnameLen * sizeof(char));
+    if (fname == NULL) {
+        file.errCode = MEMORY_ALLOCATION_FAILED;
+        return file;
+    }
     int fnameIdx = 0;
     char ext[5] = "";
     int extIdx = 0;
@@ -22,6 +26,10 @@ File checkfile(const char *filename) {
             if (fnameLen == fnameIdx-1) {
                 fnameLen++;
                 fname = realloc(fname, fnameLen * sizeof(char));
+                if (fname == NULL) {
+                    file.errCode = MEMORY_ALLOCATION_FAILED;
+                    return file;
+                }
             }
         } else if (extIdx < 5) {
             ext[extIdx] = current;
@@ -37,6 +45,10 @@ File checkfile(const char *filename) {
     if (strcmp(ext, ".link") == 0) {
         int len = strlen(filename) - strlen(fname) - strlen(ext);
         file.root = malloc((len + 1) * sizeof(char));
+        if (file.root == NULL) {
+            file.errCode = MEMORY_ALLOCATION_FAILED;
+            return file;
+        }
         for (size_t counter=0; counter <= len; counter++) {
             file.root[counter] = filename[counter];
         }

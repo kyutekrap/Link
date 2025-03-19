@@ -2,10 +2,14 @@
 
 // Find env file, if none, default to DEBUG=TRUE
 Env readenv(char *root) {
-    Env env = {0};
+    Env env = {0, 0};
 
     int fileLen = strlen(root) + 5;
     char *filename = malloc(fileLen * sizeof(char));
+    if (filename == NULL) {
+        env.errCode = MEMORY_ALLOCATION_FAILED;
+        return env;
+    }
     strcpy(filename, root);
     strcat(filename, ".env");
     FILE *file = fopen(filename, "r");

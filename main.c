@@ -3,7 +3,7 @@
 #include <stdio.h>
 
 int main() {
-    int res = lexer("C:\\Users\\user\\Link\\example\\src\\test.link");
+    int res = lexer("C:\\Users\\user\\Link\\example\\main.link");
     switch(res) {
         case SUCCESS:
             printf("SUCCESS");
@@ -40,6 +40,12 @@ int main() {
             break;
         case MEMORY_ALLOCATION_FAILED:
             printf("MEMORY_ALLOCATION_FAILED");
+            break;
+        case FILE_DELETION_FAILED:
+            printf("FILE_DELETION_FAILED");
+            break;
+        case FOLDER_CREATION_FAILED:
+            printf("FOLDER_CREATION_FAILED");
             break;
         default:
             break;

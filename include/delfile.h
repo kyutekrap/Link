@@ -5,7 +5,14 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <direct.h>
+#include "../macro/errcode.h"
 
-char *delfile(char *root);
+struct DelFile {
+    int errCode;
+    char *file;
+};
+typedef struct DelFile DelFile;
+
+DelFile delfile(char *root);
 
 #endif

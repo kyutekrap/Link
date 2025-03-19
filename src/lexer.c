@@ -2,20 +2,26 @@
 
 int lexer(const char *filename) {
     File fileProps = checkfile(filename);
+    if (fileProps.errCode != 0) return fileProps.errCode;
     if (fileProps.validFile == -1) return INVALID_FILE;
 
     Env env = readenv(fileProps.root);
+    if (env.errCode != 0) return env.errCode;
 
     char **files;
     int readDecor = 0;
     if (fileProps.readDecor == -1) {
-        files = readinc(fileProps.root);
+        ReadInc readInc = readinc(fileProps.root);
+        if (readInc.errCode != 0) return readInc.errCode;
+        files = readInc.files;
     }
 
     FILE *file = fopen(filename, "r");
     if (file == NULL) return FILE_NOT_FOUND;
 
-    char *outname = delfile(fileProps.root);
+    DelFile delFile = delfile(fileProps.root);
+    char *outname = delFile.file;
+    if (delFile.errCode != 0) return delFile.errCode;
     if (outname[0] == '\0') return C_COMPILE_ERROR;
 
     char fline[256];
@@ -23,7 +29,9 @@ int lexer(const char *filename) {
     FILE *out = NULL;
     while (fgets(fline, sizeof(fline), file)) {
         if (macroT == 2) {
-            macroT = getmacro(fline);
+            GetMacro getMacro = getmacro(fline);
+            if (getMacro.errCode != 0) return getMacro.errCode;
+            macroT = getMacro.macroT;
         } else {
             if (out == NULL) {
                 out = fopen(outname, "w");

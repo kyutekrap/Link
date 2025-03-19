@@ -1,8 +1,9 @@
 #include "../include/getmacro.h"
 
 // Find macros at opening (flow, step)
-MacroT getmacro(const char *fline) {
-    MacroT macroT = invalid;
+GetMacro getmacro(const char *fline) {
+    GetMacro getMacro = {invalid, 0};
+
     char macro[6] = "";
     int macroIdx = 1;
     char current;
@@ -21,13 +22,14 @@ MacroT getmacro(const char *fline) {
             } else if (macroIdx == 5) {
                 macro[macroIdx] = '\0';
                 if (strcmp(macro, "#flow") == 0) {
-                    macroT = flow;
+                    getMacro.macroT = flow;
                 } else if (strcmp(macro, "#step") == 0) {
-                    macroT = step;
+                    getMacro.macroT = step;
                 }
                 break;
             }
         }
     }
-    return macroT;
+
+    return getMacro;
 }

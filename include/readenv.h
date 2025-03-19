@@ -5,9 +5,11 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdlib.h>
+#include "../macro/errcode.h"
 
 struct Env {
     int debug;
+    int errCode;
 };
 typedef struct Env Env;
 
