@@ -8,8 +8,7 @@
 enum MacroT {
     flow,
     step,
-    invalid,
-    errCode
+    invalid
 };
 typedef enum MacroT MacroT;
 

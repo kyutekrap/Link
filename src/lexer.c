@@ -24,19 +24,18 @@ int lexer(const char *filename) {
     if (delFile.errCode != 0) return delFile.errCode;
     if (outname[0] == '\0') return C_COMPILE_ERROR;
 
+    FILE *out = fopen(outname, "w");
+    if (out == NULL) return C_COMPILE_ERROR;
+
     char fline[256];
     MacroT macroT = invalid;
-    FILE *out = NULL;
     while (fgets(fline, sizeof(fline), file)) {
+        if (isempty(fline) == 0) continue;
         if (macroT == 2) {
             GetMacro getMacro = getmacro(fline);
             if (getMacro.errCode != 0) return getMacro.errCode;
             macroT = getMacro.macroT;
         } else {
-            if (out == NULL) {
-                out = fopen(outname, "w");
-                if (out == NULL) return C_COMPILE_ERROR;
-            }
             if (fileProps.readDecor == 0) {
                 if (readDecor == 0) {
                     Decorator decorator = getdecor(fline);
@@ -83,21 +82,18 @@ int lexer(const char *filename) {
         }
     }
     fclose(file);
-    if (out != NULL) {
-        if (readDecor != 0) {
-            if (env.debug == 0) {
-                if (macroT == 0) {
-                    fputs(FLOW_E, out);
-                } else {
-                    fputs(STEP_E, out);
-                }
+
+    if (readDecor != 0) {
+        if (env.debug == 0) {
+            if (macroT == 0) {
+                fputs(FLOW_E, out);
+            } else {
+                fputs(STEP_E, out);
             }
-            fputs(END, out);
         }
-        fclose(out);
-    } else {
-        return LACK_OF_CONTENT;
+        fputs(END, out);
     }
+    fclose(out);
 
     if (macroT == 2) return MACRO_NOT_FOUND;
 

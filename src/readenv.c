@@ -49,8 +49,8 @@ Env readenv(char *root) {
                 }
             }
         }
+        fclose(file);
     }
-    fclose(file);
     free(filename);
     
     return env;

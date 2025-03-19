@@ -19,6 +19,7 @@
 #include "../include/delfile.h"
 #include "../include/readinc.h"
 #include "../include/getdecor.h"
+#include "../include/isempty.h"
 
 int lexer(const char *filename);
 

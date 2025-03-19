@@ -3,7 +3,7 @@
 #include <stdio.h>
 
 int main() {
-    int res = lexer("C:\\Users\\user\\Link\\example\\main.link");
+    int res = lexer("C:\\Users\\user\\Link\\example\\src\\test.link");
     switch(res) {
         case SUCCESS:
             printf("SUCCESS");
@@ -19,9 +19,6 @@ int main() {
             break;
         case C_COMPILE_ERROR:
             printf("C_COMPILE_ERROR");
-            break;
-        case LACK_OF_CONTENT: 
-            printf("LACK_OF_CONTENT");
             break;
         case BAD_USE_OF_BRACKET:
             printf("BAD_USE_OF_BRACKET");
