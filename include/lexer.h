@@ -11,8 +11,6 @@
 #include "../macro/header.h"
 #include "../macro/step_e.h"
 #include "../macro/step_s.h"
-#include "../macro/main.h"
-#include "../macro/end.h"
 #include "../include/checkfile.h"
 #include "../include/readenv.h"
 #include "../include/getmacro.h"

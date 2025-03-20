@@ -19,7 +19,7 @@ int lexer(const char *filename) {
     FILE *file = fopen(filename, "r");
     if (file == NULL) return FILE_NOT_FOUND;
 
-    DelFile delFile = delfile(fileProps.root);
+    DelFile delFile = delfile(filename);
     char *outname = delFile.file;
     if (delFile.errCode != 0) return delFile.errCode;
     if (outname[0] == '\0') return C_COMPILE_ERROR;
@@ -51,7 +51,6 @@ int lexer(const char *filename) {
                         readDecor = -1;
                         if (env.debug == 0) {
                             fputs(HEADER, out);
-                            fputs(MAIN, out);
                             if (macroT == 0) {
                                 fputs(FLOW_S, out);
                             } else {
@@ -67,7 +66,6 @@ int lexer(const char *filename) {
                     readDecor = -1;
                     if (env.debug == 0) {
                         fputs(HEADER, out);
-                        fputs(MAIN, out);
                         if (macroT == 0) {
                             fputs(FLOW_S, out);
                         } else {
@@ -91,7 +89,6 @@ int lexer(const char *filename) {
                 fputs(STEP_E, out);
             }
         }
-        fputs(END, out);
     }
     fclose(out);
 

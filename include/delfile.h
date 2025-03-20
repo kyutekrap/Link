@@ -3,8 +3,6 @@
 
 #include <string.h>
 #include <stdlib.h>
-#include <sys/stat.h>
-#include <direct.h>
 #include "../macro/errcode.h"
 
 struct DelFile {
@@ -13,6 +11,6 @@ struct DelFile {
 };
 typedef struct DelFile DelFile;
 
-DelFile delfile(char *root);
+DelFile delfile(const char *filename);
 
 #endif
