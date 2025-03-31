@@ -62,9 +62,7 @@ int lexer(const char *filename) {
                 }
                 if (decorator.isDecor == 0) {
                     files = decorator.files;
-                    current ++;
-                } else if (decorator.isDecor == 2) {
-                    continue;
+                    fprintf(out, "#include \"%s.c\"", decorator.files[0]);
                 } else if (decorator.isDecor == 1) {
                     if (env.debug == 0) {
                         fputs(HEADER, out);
@@ -96,8 +94,10 @@ int lexer(const char *filename) {
                 fputs(STEP_E, out);
             }
         }
+        fputs("}", out);
+    } else {
+        fprintf(out, "void %s(){}", fileProps.fname);
     }
-    fputs("}", out);
     fclose(out);
 
     if (macroT == 2) return MACRO_NOT_FOUND;

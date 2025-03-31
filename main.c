@@ -3,7 +3,7 @@
 #include <stdio.h>
 
 int main() {
-    int res = lexer("C:\\Users\\user\\Link\\example\\main.link");
+    int res = lexer("C:\\Users\\user\\Link\\example\\src\\test2.link");
     switch(res) {
         case SUCCESS:
             printf("SUCCESS");
