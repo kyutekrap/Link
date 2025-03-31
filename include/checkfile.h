@@ -11,6 +11,7 @@ struct File {
     int validFile;
     char *root;
     int errCode;
+    char *fname;
 };
 typedef struct File File;
 

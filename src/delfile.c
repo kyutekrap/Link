@@ -1,7 +1,4 @@
 #include "../include/delfile.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 DelFile delfile(const char *filename) {
     DelFile delFile = {0, NULL};

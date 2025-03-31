@@ -19,6 +19,13 @@
 #include "../include/getdecor.h"
 #include "../include/isempty.h"
 
+enum LexerStatus {
+    macro,
+    decor,
+    content
+};
+typedef enum LexerStatus LexerStatus;
+
 int lexer(const char *filename);
 
 #endif

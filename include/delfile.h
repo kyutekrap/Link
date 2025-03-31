@@ -1,8 +1,9 @@
 #ifndef DELFILE_H
 #define DELFILE_H
 
-#include <string.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "../macro/errcode.h"
 
 struct DelFile {
