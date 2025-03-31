@@ -8,13 +8,6 @@ int lexer(const char *filename) {
     Env env = readenv(fileProps.root);
     if (env.errCode != 0) return env.errCode;
 
-    char **files;
-    if (fileProps.readDecor == -1) {
-        ReadInc readInc = readinc(fileProps.root);
-        if (readInc.errCode != 0) return readInc.errCode;
-        files = readInc.files;
-    }
-
     FILE *file = fopen(filename, "r");
     if (file == NULL) return FILE_NOT_FOUND;
 
@@ -61,8 +54,7 @@ int lexer(const char *filename) {
                     return decorator.errCode;
                 }
                 if (decorator.isDecor == 0) {
-                    files = decorator.files;
-                    fprintf(out, "#include \"%s.c\"", decorator.files[0]);
+                    fprintf(out, "#include \"%s.c\"\n", decorator.files[0]);
                 } else if (decorator.isDecor == 1) {
                     if (env.debug == 0) {
                         fputs(HEADER, out);
@@ -101,6 +93,15 @@ int lexer(const char *filename) {
     fclose(out);
 
     if (macroT == 2) return MACRO_NOT_FOUND;
+
+    if (strcmp(fileProps.fname, "main") == 0) {
+        GetFiles getFiles = getfiles(fileProps.root);
+        for (size_t i=0; i<getFiles.fileCnt; i++) {
+            if (strcmp(getFiles.files[i], filename) == 0) continue;
+            int res = lexer(getFiles.files[i]);
+            if (res != SUCCESS) return res;
+        }
+    }
 
     return SUCCESS;
 }

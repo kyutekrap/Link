@@ -15,9 +15,9 @@
 #include "../include/readenv.h"
 #include "../include/getmacro.h"
 #include "../include/delfile.h"
-#include "../include/readinc.h"
 #include "../include/getdecor.h"
 #include "../include/isempty.h"
+#include "../include/getfiles.h"
 
 enum LexerStatus {
     macro,
