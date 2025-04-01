@@ -17,6 +17,9 @@ int main() {
         case MACRO_NOT_FOUND:
             printf("MACRO_NOT_FOUND");
             break;
+        case UNDEFINED_DECORATOR:
+            printf("UNDEFINED_DECORATOR");
+            break;
         case C_COMPILE_ERROR:
             printf("C_COMPILE_ERROR");
             break;
@@ -40,6 +43,9 @@ int main() {
             break;
         case FILE_DELETION_FAILED:
             printf("FILE_DELETION_FAILED");
+            break;
+        case FILENAME_TOO_LONG:
+            printf("FILENAME_TOO_LONG");
             break;
         default:
             break;

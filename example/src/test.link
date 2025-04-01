@@ -1,3 +1,11 @@
 #flow
 
-[LocalImport(./test2.link)]
+@import("./test2.link")
+@debug(true)
+@param(name, str)
+
+// 
+
+/*
+
+*/
