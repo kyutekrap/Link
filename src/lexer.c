@@ -1,6 +1,6 @@
 #include "../include/lexer.h"
 
-int lexer(const char *filename) {
+int lexer(char *filename) {
     File fileProps = checkfile(filename);
     if (fileProps.errCode != 0) return fileProps.errCode;
     if (fileProps.validFile == -1) return INVALID_FILE;
@@ -55,6 +55,14 @@ int lexer(const char *filename) {
                 }
                 if (decorator.isDecor == 0) {
                     fprintf(out, "#include \"%s.c\"\n", decorator.files[0]);
+                    char combined_path[PATH_MAX];
+                    char absolute_path[PATH_MAX];
+                    snprintf(combined_path, sizeof(combined_path), "%s%s", fileProps.root, decorator.files[0]);
+                    if (_fullpath(absolute_path, combined_path, PATH_MAX) == NULL) {
+                        return FILE_NOT_FOUND;
+                    }
+                    int res = lexer(absolute_path);
+                    if (res != 0) return res;
                 } else if (decorator.isDecor == 1) {
                     if (env.debug == 0) {
                         fputs(HEADER, out);
@@ -99,7 +107,7 @@ int lexer(const char *filename) {
         for (size_t i=0; i<getFiles.fileCnt; i++) {
             if (strcmp(getFiles.files[i], filename) == 0) continue;
             int res = lexer(getFiles.files[i]);
-            if (res != SUCCESS) return res;
+            if (res != 0) return res;
         }
     }
 

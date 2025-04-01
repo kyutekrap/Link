@@ -5,6 +5,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdlib.h>
+#include <limits.h>
 #include "../macro/errcode.h"
 #include "../macro/flow_e.h"
 #include "../macro/flow_s.h"
@@ -26,6 +27,6 @@ enum LexerStatus {
 };
 typedef enum LexerStatus LexerStatus;
 
-int lexer(const char *filename);
+int lexer(char *filename);
 
 #endif

@@ -1,2 +1,2 @@
-#include "./test2.c"
+#include "./test2.link.c"
 void test(){}
