@@ -13,11 +13,12 @@ gcc -c src\getdecor.c -o getdecor.o
 gcc -c src\isempty.c -o isempty.o
 gcc -c src\getfiles.c -o getfiles.o
 gcc -c src\getdeco.c -o getdeco.o
+gcc -c src\getcomm.c -o getcomm.o
 gcc -c src\lexer.c -o lexer.o
 gcc -c main.c -o main.o
 
 :: Link object files to create the final executable
-gcc -o program main.o checkfile.o readenv.o getmacro.o delfile.o getdecor.o isempty.o getfiles.o getdeco.o lexer.o
+gcc -o program main.o checkfile.o readenv.o getmacro.o delfile.o getdecor.o isempty.o getfiles.o getdeco.o getcomm.o lexer.o
 
 :: Check if compilation was successful
 if %errorlevel% neq 0 (

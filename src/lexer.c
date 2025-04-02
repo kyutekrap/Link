@@ -22,10 +22,17 @@ int lexer(char *filename) {
     char fline[256];
     MacroT macroT = invalid;
     LexerStatus current = none;
+    int isComment = -1;
     while (fgets(fline, sizeof(fline), file)) {
-        if (isempty(fline) == 0) continue;
+        if (isComment == 0 || isempty(fline) == 0) continue;
         switch(current) {
             case 0:
+                GetComm getComm = getcomm(fline);
+                if (getComm.isComment == 0) {
+                    if (getComm.direction == 1) isComment = 0;
+                    else if (getComm.direction == 2) isComment = -1;
+                    continue;
+                }
                 GetMacro getMacro = getmacro(fline);
                 if (getMacro.errCode != 0) return getMacro.errCode;
                 macroT = getMacro.macroT;
@@ -48,6 +55,12 @@ int lexer(char *filename) {
                 }
                 break;
             case 1:
+                getComm = getcomm(fline);
+                if (getComm.isComment == 0) {
+                    if (getComm.direction == 1) isComment = 0;
+                    else if (getComm.direction == 2) isComment = -1;
+                    continue;
+                }
                 Decorator decorator = getdecor(fline);
                 if (decorator.errCode != 0) {
                     fclose(out);
