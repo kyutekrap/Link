@@ -5,9 +5,6 @@ int lexer(char *filename) {
     if (fileProps.errCode != 0) return fileProps.errCode;
     if (fileProps.validFile == -1) return INVALID_FILE;
 
-    Env env = readenv(fileProps.root);
-    if (env.errCode != 0) return env.errCode;
-
     FILE *file = fopen(filename, "r");
     if (file == NULL) return FILE_NOT_FOUND;
 
@@ -21,8 +18,9 @@ int lexer(char *filename) {
 
     char fline[256];
     MacroT macroT = invalid;
-    LexerStatus current = none;
+    LexerStatus current = 0;
     int isComment = -1;
+    int isDebug = -1;
     while (fgets(fline, sizeof(fline), file)) {
         if (isComment == 0 || isempty(fline) == 0) continue;
         switch(current) {
@@ -37,21 +35,7 @@ int lexer(char *filename) {
                 if (getMacro.errCode != 0) return getMacro.errCode;
                 macroT = getMacro.macroT;
                 if (macroT != 2) {
-                    if (fileProps.readDecor == 0) current = decor;
-                    else {
-                        if (env.debug == 0) {
-                            fputs(HEADER, out);
-                        }
-                        fprintf(out, "void %s(){", fileProps.fname);
-                        if (env.debug == 0) {
-                            if (macroT == 0) {
-                                fputs(FLOW_S, out);
-                            } else {
-                                fputs(STEP_S, out);
-                            }
-                        }
-                        current = content;
-                    }
+                    current ++;
                 }
                 break;
             case 1:
@@ -61,27 +45,36 @@ int lexer(char *filename) {
                     else if (getComm.direction == 2) isComment = -1;
                     continue;
                 }
-                Decorator decorator = getdecor(fline);
-                if (decorator.errCode != 0) {
+                GetDeco getDeco = getdeco(fline);
+                if (getDeco.errCode != 0) {
                     fclose(out);
-                    return decorator.errCode;
+                    return getDeco.errCode;
                 }
-                if (decorator.isDecor == 0) {
-                    fprintf(out, "#include \"%s.c\"\n", decorator.files[0]);
-                    char combined_path[PATH_MAX];
-                    char absolute_path[PATH_MAX];
-                    snprintf(combined_path, sizeof(combined_path), "%s%s", fileProps.root, decorator.files[0]);
-                    if (_fullpath(absolute_path, combined_path, PATH_MAX) == NULL) {
-                        return FILE_NOT_FOUND;
+                if (getDeco.isDeco == 0) {
+                    if (getDeco.decoType == import) {
+                        fprintf(out, "#include \"%s.c\"\n", getDeco.value);
+                        char combined_path[PATH_MAX];
+                        char absolute_path[PATH_MAX];
+                        snprintf(combined_path, sizeof(combined_path), "%s%s", fileProps.root, getDeco.value);
+                        if (_fullpath(absolute_path, combined_path, PATH_MAX) == NULL) {
+                            return FILE_NOT_FOUND;
+                        }
+                        int res = lexer(absolute_path);
+                        if (res != 0) {
+                            fclose(out);
+                            return res;
+                        }
+                    } else if (getDeco.decoType == debug) {
+                        if (strcmp(getDeco.value, "true") == 0) isDebug = 0;
+                    } else {
+
                     }
-                    int res = lexer(absolute_path);
-                    if (res != 0) return res;
-                } else if (decorator.isDecor == 1) {
-                    if (env.debug == 0) {
+                } else {
+                    if (isDebug == 0) {
                         fputs(HEADER, out);
                     }
                     fprintf(out, "void %s(){", fileProps.fname);
-                    if (env.debug == 0) {
+                    if (isDebug == 0) {
                         if (macroT == 0) {
                             fputs(FLOW_S, out);
                         } else {
@@ -100,7 +93,7 @@ int lexer(char *filename) {
     fclose(file);
 
     if (current == 2) {
-        if (env.debug == 0) {
+        if (isDebug == 0) {
             if (macroT == 0) {
                 fputs(FLOW_E, out);
             } else {

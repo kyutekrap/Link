@@ -1,7 +1,8 @@
 #flow
 
-// @import("./test2.link")
+@import("./test2.link")
+@debug(true)
 
-/* @debug(true)
+/*
 * @param(name, str)
 */

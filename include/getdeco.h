@@ -5,6 +5,7 @@
 #include <string.h>
 #include <limits.h>
 #include <ctype.h>
+#include <stdio.h>
 #include "../macro/errcode.h"
 
 enum DecoType {

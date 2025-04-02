@@ -1,10 +1,10 @@
 #include "../include/checkfile.h"
 
 // Detect if .link
-// Detect if main.link (Otherwise, read decorators)
+// Detect if main.link
 // Detect project root
 File checkfile(const char *filename) {
-    File file = {0, 0, "", 0, ""};
+    File file = {0, "", 0, ""};
 
     int fnameLen = 4;
     char *fname = malloc(fnameLen * sizeof(char));
@@ -55,9 +55,6 @@ File checkfile(const char *filename) {
         file.root[len] = '\0';
     } else {
         file.validFile = -1;
-    }
-    if (strcmp(fname, "main") == 0) {
-        file.readDecor = -1;
     }
     file.fname = fname;
     

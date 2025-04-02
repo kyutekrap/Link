@@ -7,7 +7,6 @@
 #include "../macro/errcode.h"
 
 struct File {
-    int readDecor;
     int validFile;
     char *root;
     int errCode;
