@@ -1,6 +1,6 @@
 // ===== EXTERNAL SOURCES (START)
 
-#include "./lexer.h"
+#include "./transpiler.h"
 
 // ===== EXTERNAL SOURCES (END)
 
@@ -41,6 +41,13 @@ typedef enum {
     LiveEnv
 } EnvironType;
 
+typedef enum {
+    Info,
+    Error,
+    Warning,
+    UnknownFunction
+} FunctionType;
+
 // ===== BASIC ENUMS (END)
 
 // ===== BASIC STRUCTS (START)
@@ -59,6 +66,11 @@ typedef struct {
     int count;
     char **data;
 } StrList;
+
+typedef struct {
+    FunctionType function_type;
+    char *function_value;
+} Function;
 
 // ===== BASIC STRUCTS (END)
 
@@ -105,10 +117,8 @@ char *error_code2str(ErrorCode error_code) {
             return "UNKNOWN_IDENTIFIER";
         case UNKNOWN_PROPERTY:
             return "UNKNOWN_PROPERTY";
-        case UNSUPPORTED_DTYPE:
-            return "UNSUPPORTED_DTYPE";
-        case FILENAME_TOO_LONG:
-            return "FILENAME_TOO_LONG";
+        case UNKNOWN_FUNCTION:
+            return "UNKNOWN_FUNCTION";
         case C_COMPILE_ERROR:
             return "C_COMPILE_ERROR";
     }
@@ -126,7 +136,7 @@ void *get_full_path(char *cwd, char *relative_path, char *out_path) {
     _fullpath(out_path, combined_path, PATH_MAX);
 }
 
-IntList char_index(const char *str, char target) {
+IntList char_index(char *str, char target) {
     IntList mlist = {0, NULL};
 
     for (int i = 0; i < strlen(str); i++) {
@@ -470,11 +480,83 @@ StrList search_dirs(char *cwd) {
     return mlist;
 }
 
+YesNo is_function(char *fline) {
+    IntList sValue = char_index(fline, '(');
+    if (sValue.count != 1)
+        return N;
+    
+    int offset = strlen(fline) - 1;
+    if (fline[offset] != ')')
+        return N;
+
+    return Y;
+}
+
+Function parse_function(char *fline) {
+    Function function = {UnknownFunction, NULL};
+
+    IntList sValue = char_index(fline, '(');
+    char *temp = substr(fline, 0, sValue.data[0][0]);
+    if (strcmp(temp, "Info") == 0)
+        function.function_type = Info;
+    else if (strcmp(temp, "Warning") == 0)
+        function.function_type = Warning;
+    else if (strcmp(temp, "Error") == 0)
+        function.function_type = Error;
+
+    int pos = sValue.data[0][0]+1;
+    int cnt = strlen(fline) - pos - 1;
+    function.function_value = substr(fline, pos, cnt);
+
+    return function;
+}
+
 // ===== TOP-DOWN PROCEDURAL GROUPING (END)
+
+// ===== HELPERS (START)
+
+YesNo analyze_free_line_text(char *fline, FILE *out_file, EnvironType environ_type) {
+    if (is_function(fline) == N)
+        return N;
+
+    Function function = parse_function(fline);
+    if (function.function_type == UnknownFunction)
+        return N;
+
+    switch (function.function_type) {
+        case Info:
+            if (environ_type == LiveEnv)
+                break;
+            char *info_temp = info(extract_string(function.function_value));
+            fprintf(out_file, "\t%s", info_temp);
+            free(info_temp);
+            break;
+
+        case Warning:
+            if (environ_type == LiveEnv)
+                break;
+            char *warning_temp = warning(extract_string(function.function_value));
+            fprintf(out_file, "\t%s", warning_temp);
+            free(warning_temp);
+            break;
+
+        case Error:
+            if (environ_type == LiveEnv)
+                break;
+            char *error_temp = error(extract_string(function.function_value));
+            fprintf(out_file, "\t%s", error_temp);
+            free(error_temp);
+            break;
+    }
+
+    return Y;
+}
+
+// ===== HELPERS (END)
 
 // ===== MAIN (START)
 
-void lexer(char *filename) {
+void transpiler(char *filename) {
     if (is_link_file(filename) == N) {
         syslogger(filename, 0, INVALID_FILE);
         return;
@@ -513,22 +595,21 @@ void lexer(char *filename) {
 
         if (is_empty(fline) == Y)
             continue;
+
+        trim(fline);
     
-        if (text_type != FreeLineText) {
-            trim(fline);
-            if (comment_type == OneLineComment) {
-                if(is_one_line_comment(fline) == Y)
-                    continue;
-                if (started_multi_line_comment(fline) == Y) {
-                    comment_type = MultiLineComment;
-                    continue;
-                }
-            } else {
-                if (ended_multi_line_comment(fline) == Y) {
-                    comment_type = OneLineComment;
-                }
+        if (comment_type == OneLineComment) {
+            if(is_one_line_comment(fline) == Y)
+                continue;
+            if (started_multi_line_comment(fline) == Y) {
+                comment_type = MultiLineComment;
                 continue;
             }
+        } else {
+            if (ended_multi_line_comment(fline) == Y) {
+                comment_type = OneLineComment;
+            }
+            continue;
         }
 
         switch(text_type) {
@@ -553,7 +634,14 @@ void lexer(char *filename) {
                         fputs(identifier_type == Flow ? FLOW_S : STEP_S, out_file);
                     else
                         fputs("\n", out_file);
-                    fprintf(out_file, "\t%s", out_file);
+                    if (identifier_type == Flow) {
+                        if (analyze_free_line_text(fline, out_file, environ_type) == N) {
+                            syslogger(filename, fline_number, UNKNOWN_FUNCTION);
+                            goto cleanup;
+                        }
+                    } else {
+                        fprintf(out_file, "\t%s", out_file);
+                    }
                     text_type = FreeLineText;
                     break;
                 }
@@ -573,7 +661,7 @@ void lexer(char *filename) {
                     if (full_path == NULL)
                         syslogger(filename, fline_number, FILE_NOT_FOUND);
                     else
-                        lexer(full_path);
+                        transpiler(full_path);
                 }
                 else if (property_obj.property_type == Param) {
                     collected_params = join_str(collected_params, property_obj.property_value);
@@ -585,7 +673,14 @@ void lexer(char *filename) {
                 break;
             
             case FreeLineText:
-                fprintf(out_file, "\t%s", out_file);
+                if (identifier_type == Flow) {
+                    if (analyze_free_line_text(fline, out_file, environ_type) == N) {
+                        syslogger(filename, fline_number, UNKNOWN_FUNCTION);
+                        goto cleanup;
+                    }
+                } else {
+                    fprintf(out_file, "\t%s", out_file);
+                }
                 break;
         }
     }
@@ -613,14 +708,14 @@ void lexer(char *filename) {
             if (strcmp(files.data[i], filename) == 0)
                 continue;
             if (is_link_file(files.data[i]) == Y);
-                lexer(files.data[i]);
+                transpiler(files.data[i]);
         }
         StrList dirs = search_dirs(cwd);
         for (int i = 0; i < dirs.count; i ++) {
             StrList files = search_files(dirs.data[i]);
             for (int i = 0; i < files.count; i ++) {
                 if (is_link_file(files.data[i]) == Y);
-                    lexer(files.data[i]);
+                    transpiler(files.data[i]);
             }
         }
     }

@@ -1,6 +1,6 @@
-#include "./src/lexer.h"
+#include "./transpiler/transpiler.h"
 
 int main() {
-    lexer("C:\\Users\\user\\Link\\example\\main.link");
+    transpiler("C:\\Users\\user\\Link\\_example\\main.link");
     return 0;
 }
