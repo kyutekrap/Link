@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include "../utils/utils.h"
 
 char *info(char *str);
 char *error(char *str);

@@ -4,6 +4,12 @@
 
 // ===== EXTERNAL SOURCES (END)
 
+// ===== DEFINITIONS (START)
+
+#define HEADER "#include <stdio.h>\n#include <time.h>\n\n"
+
+// ===== DEFINITIONS (END)
+
 // ===== BASIC ENUMS (START)
 
 typedef enum {
@@ -75,37 +81,6 @@ typedef struct {
 // ===== BASIC STRUCTS (END)
 
 // ===== UTILS (START)
-
-void *trim(char *str) {
-    char *start = str;
-    char *end;
-    while (isspace((unsigned char)*start)) {
-        start++;
-    }
-    if (*start == '\0') {
-        str[0] = '\0';
-        return str;
-    }
-    end = start + strlen(start) - 1;
-    while (end > start && isspace((unsigned char)*end)) {
-        end--;
-    }
-    *(end + 1) = '\0';
-    memmove(str, start, end - start + 2);
-}
-
-char *substr(const char *str, int pos, int cnt) {
-    int len = strlen(str);
-    if (pos < 0 || pos >= len || cnt < 0) return NULL;
-    if (pos + cnt > len) {
-        cnt = len - pos;
-    }
-    char *temp = malloc(cnt + 1);
-    if (!temp) return NULL;
-    strncpy(temp, str + pos, cnt);
-    temp[cnt] = '\0';
-    return temp;
-}
 
 char *error_code2str(ErrorCode error_code) {
     switch (error_code) {
@@ -358,29 +333,6 @@ Property parse_property(char *fline) {
     return property_obj;
 }
 
-char *join_str(char *original_str, const char *new_str) {
-    if (original_str == NULL) {
-        original_str = malloc(strlen(new_str) + 1);
-        if (!original_str) {
-            printf("[Error] Memory allocation failed\n");
-            return NULL;
-        }
-        strcpy(original_str, new_str);
-        return original_str;
-    }
-
-    size_t new_len = strlen(original_str) + strlen(new_str) + 1;
-    char *temp = realloc(original_str, new_len);
-    if (!temp) {
-        printf("[Error] Memory allocation failed\n");
-        return original_str;
-    }
-
-    original_str = temp;
-    strcat(original_str, new_str);
-    return original_str;
-}
-
 StrList search_files(char *cwd) {
     StrList mlist = {0, NULL};
     struct dirent *dp;
@@ -533,7 +485,7 @@ YesNo analyze_free_line_text(char *fline, FILE *out_file, EnvironType environ_ty
         case Info:
             if (environ_type == LiveEnv)
                 break;
-            char *info_temp = info(extract_string(function.function_value));
+            char *info_temp = info(function.function_value);
             fprintf(out_file, "\t%s", info_temp);
             free(info_temp);
             break;
@@ -541,7 +493,7 @@ YesNo analyze_free_line_text(char *fline, FILE *out_file, EnvironType environ_ty
         case Warning:
             if (environ_type == LiveEnv)
                 break;
-            char *warning_temp = warning(extract_string(function.function_value));
+            char *warning_temp = warning(function.function_value);
             fprintf(out_file, "\t%s", warning_temp);
             free(warning_temp);
             break;
@@ -549,7 +501,7 @@ YesNo analyze_free_line_text(char *fline, FILE *out_file, EnvironType environ_ty
         case Error:
             if (environ_type == LiveEnv)
                 break;
-            char *error_temp = error(extract_string(function.function_value));
+            char *error_temp = error(function.function_value);
             fprintf(out_file, "\t%s", error_temp);
             free(error_temp);
             break;
@@ -636,10 +588,19 @@ void transpiler(char *filename) {
                         fprintf(out_file, "void %s() {\n", namespace);
                     else
                         fprintf(out_file, "void %s(%s) {\n", namespace, collected_params);
-                    if (environ_type == DebugEnv)
-                        fputs(identifier_type == Flow ? FLOW_S : STEP_S, out_file);
-                    else
+                    if (environ_type == DebugEnv) {
+                        if (identifier_type == Flow) {
+                            char *flow_s_temp = flow_s();
+                            fputs(flow_s_temp, out_file);
+                            free(flow_s_temp);
+                        } else {
+                            // char *step_s_temp = step_s();
+                            // fputs(step_s_temp, out_file);
+                            // free(step_s_temp);
+                        }
+                    } else {
                         fputs("\n", out_file);
+                    }
                     if (identifier_type == Flow) {
                         if (analyze_free_line_text(fline, out_file, environ_type) == N) {
                             syslogger(filename, fline_number, UNKNOWN_FUNCTION);
@@ -698,14 +659,32 @@ void transpiler(char *filename) {
             fprintf(out_file, "void %s() {\n", namespace);
         else
             fprintf(out_file, "void %s(%s) {\n", namespace, collected_params);
-        if (environ_type == DebugEnv)
-            fputs(identifier_type == Flow ? FLOW_S : STEP_S, out_file);
-        else
+        if (environ_type == DebugEnv) {
+            if (identifier_type == Flow) {
+                char *flow_s_temp = flow_s();
+                fputs(flow_s_temp, out_file);
+                free(flow_s_temp);
+            } else {
+                // char *step_s_temp = step_s();
+                // fputs(step_s_temp, out_file);
+                // free(step_s_temp);
+            }
+        } else {
             fputs("\n", out_file);
+        }
     }
 
-    if (environ_type == DebugEnv)
-        fputs(identifier_type == Flow ? FLOW_E : STEP_E, out_file);
+    if (environ_type == DebugEnv) {
+        if (identifier_type == Flow) {
+            char *flow_e_temp = flow_e(namespace);
+            fputs(flow_e_temp, out_file);
+            free(flow_e_temp);
+        } else {
+            // char *step_e_temp = step_e(namespace);
+            // fputs(step_e_temp, out_file);
+            // free(step_e_temp);
+        }
+    }
     fputs("}", out_file);
 
     if (is_main == Y) {

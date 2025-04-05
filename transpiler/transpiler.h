@@ -9,8 +9,10 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include "./error_code.h"
-#include "./identifier.h"
 #include "../debugger/debugger.h"
+#include "../utils/utils.h"
+#include "../flow/flow.h"
+#include "../step/step.h"
 
 void transpiler(char *filename);
 
