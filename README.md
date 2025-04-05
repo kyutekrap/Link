@@ -1,12 +1,26 @@
-﻿# Link
-Superset of C
-***
-Background: Migration from PyLink, a Python wrapper API
+﻿# **Link**  
+*A Superset of C*
 
-Abstract: For now, what it does is enforce a syntax that is unique to Link unlike PyLink, translate that into a compressed C file. In the future, it will utilize a broad variety of macros, decorators, and builtin functions.
+---
 
-Goal: Easy utility-purpose language with the feasibility of C
+### 🧠 Background  
+Link is a migration from **PyLink**, a Python-based wrapper API. The aim is to move towards a more native C-based language.
 
-Development environment: Windows only
+### 🎯 Abstract
+Link enforces a custom syntax unique to its language — different from PyLink — and transpiles it into standard C code.
 
-IDE Support: VS Code (Link Syntax)
+### 🚀 Goal  
+To create a lightweight, utility-focused language that blends the **simplicity of scripting** with the **power and performance of C**.
+
+---
+
+### 💻 Development Environment  
+- **Platform:** Windows only  
+- **IDE Support:** VS Code (Link Syntax)
+
+---
+
+### 🧰 Built-in Functions  
+- `Info()` – Inherited from PyLink's Debugger  
+- `Warning()` – Inherited from PyLink's Debugger  
+- `Error()` – Inherited from PyLink's Debugger

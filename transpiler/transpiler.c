@@ -503,9 +503,15 @@ Function parse_function(char *fline) {
         function.function_type = Warning;
     else if (strcmp(temp, "Error") == 0)
         function.function_type = Error;
+    else
+        return function;
+
+    int flen = strlen(fline);
+    if (fline[flen-1] != ')')
+        return function;
 
     int pos = sValue.data[0][0]+1;
-    int cnt = strlen(fline) - pos - 1;
+    int cnt = flen - pos - 1;
     function.function_value = substr(fline, pos, cnt);
 
     return function;
