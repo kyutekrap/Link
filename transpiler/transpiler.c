@@ -51,7 +51,8 @@ typedef enum {
     Info,
     Error,
     Warning,
-    UnknownFunction
+    UnknownFunction,
+    CustomFunction
 } FunctionType;
 
 // ===== BASIC ENUMS (END)
@@ -62,16 +63,6 @@ typedef struct {
     PropertyType property_type;
     char *property_value;
 } Property;
-
-typedef struct {
-    int count;
-    int **data;
-} IntList;
-
-typedef struct {
-    int count;
-    char **data;
-} StrList;
 
 typedef struct {
     FunctionType function_type;
@@ -225,7 +216,7 @@ char *get_namespace(char *filename) {
     return result;
 }
 
-char *get_target_name(const char *filename) {
+char *get_target_name(char *filename) {
     int len = strlen(filename);
     char *new_str = malloc(len - 3);
     if (!new_str) return NULL;
@@ -233,10 +224,6 @@ char *get_target_name(const char *filename) {
     new_str[len - 4] = 'c';
     new_str[len - 3] = '\0';
     return new_str;
-}
-
-void delete_old_file(char *filename) {
-    remove(filename);
 }
 
 YesNo is_one_line_comment(char *fline) {
@@ -333,7 +320,7 @@ Property parse_property(char *fline) {
     return property_obj;
 }
 
-StrList search_files(char *cwd) {
+StrList search_files(char *cwd, char *extension) {
     StrList mlist = {0, NULL};
     struct dirent *dp;
     DIR *dir = opendir(cwd);
@@ -355,7 +342,7 @@ StrList search_files(char *cwd) {
 
         if (S_ISREG(path_stat.st_mode)) {
             const char *ext = strrchr(dp->d_name, '.');
-            if (ext && strcmp(ext, ".link") == 0) {
+            if (ext && strcmp(ext, extension) == 0) {
                 char full_path[PATH_MAX];
                 char temp_path[PATH_MAX];
 
@@ -432,6 +419,77 @@ StrList search_dirs(char *cwd) {
     return mlist;
 }
 
+char delete_old_files(char *cwd) {
+    StrList files = search_files(cwd, ".c");
+    for (int i = 0; i < files.count; i ++) {
+        remove(files.data[i]);
+    }
+    StrList dirs = search_dirs(cwd);
+    for (int i = 0; i < dirs.count; i ++) {
+        StrList files = search_files(dirs.data[i], ".c");
+        for (int i = 0; i < files.count; i ++) {
+            remove(files.data[i]);
+        }
+    }
+}
+
+void read_and_copy_file(const char *full_path_c, char **imported_functions) {
+    FILE *fp = fopen(full_path_c, "r");
+    if (fp == NULL)
+        return;
+
+    if (fseek(fp, 0, SEEK_END) != 0) {
+        fclose(fp);
+        return;
+    }
+
+    long length = ftell(fp);
+    if (length < 0) {
+        fclose(fp);
+        return;
+    }
+
+    rewind(fp);
+
+    char *buffer = malloc(length + 3);
+    if (!buffer) {
+        fclose(fp);
+        printf("[Error] Memory allocation failed\n");
+        return;
+    }
+
+    size_t read_size = fread(buffer, 1, length, fp);
+    fclose(fp);
+
+    if (read_size == 0 && ferror(fp)) {
+        free(buffer);
+        return;
+    }
+
+    buffer[read_size] = '\0';
+
+    while (read_size > 0 && (buffer[read_size - 1] == '\n' || buffer[read_size - 1] == '\r')) {
+        buffer[--read_size] = '\0';
+    }
+
+    buffer[read_size++] = '\n';
+    buffer[read_size++] = '\n';
+    buffer[read_size] = '\0';
+
+    size_t old_len = (*imported_functions) ? strlen(*imported_functions) : 0;
+    char *new_str = realloc(*imported_functions, old_len + read_size + 1);
+    if (!new_str) {
+        free(buffer);
+        printf("[Error] Memory allocation failed\n");
+        return;
+    }
+
+    memcpy(new_str + old_len, buffer, read_size + 1);
+    free(buffer);
+
+    *imported_functions = new_str;
+}
+
 YesNo is_function(char *fline) {
     IntList sValue = char_index(fline, '(');
     if (sValue.count != 1)
@@ -444,19 +502,31 @@ YesNo is_function(char *fline) {
     return Y;
 }
 
-Function parse_function(char *fline) {
+Function parse_function(char *fline, StrList imported_functions_header) {
     Function function = {UnknownFunction, NULL};
 
     IntList sValue = char_index(fline, '(');
     char *temp = substr(fline, 0, sValue.data[0][0]);
     if (strcmp(temp, "Info") == 0)
+    {
         function.function_type = Info;
+    }
     else if (strcmp(temp, "Warning") == 0)
+    {
         function.function_type = Warning;
+    }
     else if (strcmp(temp, "Error") == 0)
+    {
         function.function_type = Error;
-    else
-        return function;
+    }
+    else {
+        for (int i=0; i<imported_functions_header.count; i++) {
+            if (strcmp(temp, imported_functions_header.data[i]) == 0)
+                function.function_type = CustomFunction;
+        }
+        if (function.function_type == UnknownFunction)
+            return function;
+    }
 
     int flen = strlen(fline);
     if (fline[flen-1] != ')')
@@ -473,11 +543,11 @@ Function parse_function(char *fline) {
 
 // ===== HELPERS (START)
 
-YesNo analyze_free_line_text(char *fline, FILE *out_file, EnvironType environ_type) {
+YesNo analyze_free_line_text(char *fline, FILE *out_file, EnvironType environ_type, StrList imported_functions_header) {
     if (is_function(fline) == N)
         return N;
 
-    Function function = parse_function(fline);
+    Function function = parse_function(fline, imported_functions_header);
     if (function.function_type == UnknownFunction)
         return N;
 
@@ -505,6 +575,9 @@ YesNo analyze_free_line_text(char *fline, FILE *out_file, EnvironType environ_ty
             fprintf(out_file, "\t%s", error_temp);
             free(error_temp);
             break;
+        
+        default:
+            fprintf(out_file, "\t%s", fline);
     }
 
     return Y;
@@ -514,18 +587,16 @@ YesNo analyze_free_line_text(char *fline, FILE *out_file, EnvironType environ_ty
 
 // ===== MAIN (START)
 
-void transpiler(char *filename) {
+void transpiler_main(char *filename, char *origin) {
     if (is_link_file(filename) == N) {
         syslogger(filename, 0, INVALID_FILE);
         return;
     }
 
     YesNo is_main = is_main_file(filename);
-    char *cwd = get_cwd(filename);
+    char *cwd = origin == NULL ? get_cwd(filename) : origin;
     char *namespace = get_namespace(filename);
-
     char *target_name = get_target_name(filename);
-    delete_old_file(target_name);
 
     FILE *in_file = fopen(filename, "r");
     if (in_file == NULL) {
@@ -548,6 +619,8 @@ void transpiler(char *filename) {
     char fline[1024];
     int fline_number = 0;
     char *collected_params = NULL;
+    char *imported_functions = NULL;
+    StrList imported_functions_header = {0, NULL};
     while (fgets(fline, sizeof(fline), in_file)) {
         fline_number ++;
 
@@ -582,27 +655,28 @@ void transpiler(char *filename) {
             
             case PropertyText:
                 if (is_property(fline) == N) {
-                    if (environ_type == DebugEnv)
+                    if (environ_type == DebugEnv && origin != NULL)
                         fputs(HEADER, out_file);
-                    if (collected_params == NULL)
-                        fprintf(out_file, "void %s() {\n", namespace);
-                    else
-                        fprintf(out_file, "void %s(%s) {\n", namespace, collected_params);
+                    if (imported_functions != NULL) {
+                        fwrite(imported_functions, 1, strlen(imported_functions), out_file);
+                        free(imported_functions);
+                    }
+                    fprintf(out_file, "void %s(%s) {\n", namespace, collected_params == NULL ? "" : collected_params);
                     if (environ_type == DebugEnv) {
                         if (identifier_type == Flow) {
                             char *flow_s_temp = flow_s();
                             fputs(flow_s_temp, out_file);
                             free(flow_s_temp);
                         } else {
-                            // char *step_s_temp = step_s();
-                            // fputs(step_s_temp, out_file);
-                            // free(step_s_temp);
+                            char *step_s_temp = step_s();
+                            fputs(step_s_temp, out_file);
+                            free(step_s_temp);
                         }
                     } else {
                         fputs("\n", out_file);
                     }
                     if (identifier_type == Flow) {
-                        if (analyze_free_line_text(fline, out_file, environ_type) == N) {
+                        if (analyze_free_line_text(fline, out_file, environ_type, imported_functions_header) == N) {
                             syslogger(filename, fline_number, UNKNOWN_FUNCTION);
                             goto cleanup;
                         }
@@ -617,18 +691,19 @@ void transpiler(char *filename) {
                     environ_type = (strcmp(property_obj.property_value, "true") == 0) ? DebugEnv : LiveEnv;
                 }
                 else if (property_obj.property_type == Import) {
-                    if (is_main == Y)
-                        break;
-
                     property_obj.property_value = extract_string(property_obj.property_value);
-                    fprintf(out_file, "#include \"%s\"\n", get_target_name(property_obj.property_value));
-
                     char full_path[PATH_MAX];
                     get_full_path(cwd, property_obj.property_value, full_path);
-                    if (full_path == NULL)
+                    if (full_path == NULL) {
                         syslogger(filename, fline_number, FILE_NOT_FOUND);
-                    else
-                        transpiler(full_path);
+                        goto cleanup;
+                    } else {
+                        char *full_path_c = get_target_name(full_path);
+                        if (access(full_path_c, F_OK) != 0)
+                            transpiler_main(full_path, NULL);
+                        read_and_copy_file(full_path_c, &imported_functions);
+                        imported_functions_header = append_str_list(imported_functions_header, get_namespace(full_path));
+                    }
                 }
                 else if (property_obj.property_type == Param) {
                     collected_params = join_str(collected_params, property_obj.property_value);
@@ -641,7 +716,7 @@ void transpiler(char *filename) {
             
             case FreeLineText:
                 if (identifier_type == Flow) {
-                    if (analyze_free_line_text(fline, out_file, environ_type) == N) {
+                    if (analyze_free_line_text(fline, out_file, environ_type, imported_functions_header) == N) {
                         syslogger(filename, fline_number, UNKNOWN_FUNCTION);
                         goto cleanup;
                     }
@@ -653,21 +728,22 @@ void transpiler(char *filename) {
     }
 
     if (text_type != FreeLineText) {
-        if (environ_type == DebugEnv)
+        if (environ_type == DebugEnv && origin != NULL)
             fputs(HEADER, out_file);
-        if (collected_params == NULL)
-            fprintf(out_file, "void %s() {\n", namespace);
-        else
-            fprintf(out_file, "void %s(%s) {\n", namespace, collected_params);
+        if (imported_functions != NULL) {
+            fwrite(imported_functions, 1, strlen(imported_functions), out_file);
+            free(imported_functions);
+        }
+        fprintf(out_file, "void %s(%s) {\n", namespace, collected_params == NULL ? "" : collected_params);
         if (environ_type == DebugEnv) {
             if (identifier_type == Flow) {
                 char *flow_s_temp = flow_s();
                 fputs(flow_s_temp, out_file);
                 free(flow_s_temp);
             } else {
-                // char *step_s_temp = step_s();
-                // fputs(step_s_temp, out_file);
-                // free(step_s_temp);
+                char *step_s_temp = step_s();
+                fputs(step_s_temp, out_file);
+                free(step_s_temp);
             }
         } else {
             fputs("\n", out_file);
@@ -680,30 +756,12 @@ void transpiler(char *filename) {
             fputs(flow_e_temp, out_file);
             free(flow_e_temp);
         } else {
-            // char *step_e_temp = step_e(namespace);
-            // fputs(step_e_temp, out_file);
-            // free(step_e_temp);
+            char *step_e_temp = step_e(namespace);
+            fputs(step_e_temp, out_file);
+            free(step_e_temp);
         }
     }
     fputs("}", out_file);
-
-    if (is_main == Y) {
-        StrList files = search_files(cwd);
-        for (int i = 0; i < files.count; i ++) {
-            if (strcmp(files.data[i], filename) == 0)
-                continue;
-            if (is_link_file(files.data[i]) == Y);
-                transpiler(files.data[i]);
-        }
-        StrList dirs = search_dirs(cwd);
-        for (int i = 0; i < dirs.count; i ++) {
-            StrList files = search_files(dirs.data[i]);
-            for (int i = 0; i < files.count; i ++) {
-                if (is_link_file(files.data[i]) == Y);
-                    transpiler(files.data[i]);
-            }
-        }
-    }
 
     cleanup:
         fclose(in_file);
@@ -711,3 +769,14 @@ void transpiler(char *filename) {
 }
 
 // ===== MAIN (END)
+
+// ===== PROVIDER (START)
+
+void transpiler(char *filename) {
+    char *cwd = get_cwd(filename);
+    delete_old_files(cwd);
+
+    transpiler_main(filename, cwd);
+}
+
+// ===== PROVIDER (END)

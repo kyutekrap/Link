@@ -8,6 +8,7 @@
 #include <limits.h>
 #include <dirent.h>
 #include <sys/stat.h>
+#include <unistd.h>
 #include "./error_code.h"
 #include "../debugger/debugger.h"
 #include "../utils/utils.h"
