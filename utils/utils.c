@@ -33,7 +33,7 @@ char *substr(char *str, int pos, int cnt) {
     return temp;
 }
 
-char *join_str(char *original_str, const char *new_str) {
+char *join_str(char *original_str, char *new_str) {
     if (original_str == NULL) {
         original_str = malloc(strlen(new_str) + 1);
         if (!original_str) {
@@ -90,6 +90,44 @@ StrList append_str_list(StrList str_list, char *new_value) {
     else
         printf("[Error] Memory allocation failed\n");
     return str_list;
+}
+
+YesNo in_str_list(StrList str_list, char *checking_value) {
+    for (int i=0; i<str_list.count; i++) {
+        if (strcmp(str_list.data[i], checking_value) == 0) {
+            return Y;
+        }
+    }
+    return N;
+}
+
+YesNo in_int_list(IntList int_list, int checking_value) {
+    for (int i = 0; i < int_list.count; i++) {
+        if (*(int_list.data[i]) == checking_value) {
+            return Y;
+        }
+    }
+    return N;
+}
+
+StrList clear_str_list(StrList mlist) {
+    for (int j = 0; j < mlist.count; j++) {
+        free(mlist.data[j]);
+    }
+    free(mlist.data);
+    mlist.data = NULL;
+    mlist.count = 0;
+    return mlist;
+}
+
+IntList clear_int_list(IntList mlist) {
+    for (int j = 0; j < mlist.count; j++) {
+        free(mlist.data[j]);
+    }
+    free(mlist.data);
+    mlist.data = NULL;
+    mlist.count = 0;
+    return mlist;
 }
 
 // ===== STRUCT UTILS (END)

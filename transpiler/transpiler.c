@@ -13,11 +13,6 @@
 // ===== BASIC ENUMS (START)
 
 typedef enum {
-    Y,
-    N
-} YesNo;
-
-typedef enum {
     CommentText,
     IdentifierText,
     PropertyText,
@@ -68,6 +63,13 @@ typedef struct {
     FunctionType function_type;
     char *function_value;
 } Function;
+
+typedef struct {
+    char *name;
+    StrList imports;
+    StrList params;
+    YesNo debug;
+} TranspilerSummary;
 
 // ===== BASIC STRUCTS (END)
 
@@ -165,18 +167,6 @@ YesNo is_link_file(char *filename) {
     YesNo result = (suffix && strcmp(suffix, ".link") == 0) ? Y : N;
     free(suffix);
     return result;
-}
-
-YesNo is_main_file(char *filename) {
-    const int cnt = 4;
-    const int offset = 5;
-    const int pos = strlen(filename) - cnt - offset;
-    if (pos < 1)
-        return N;
-    if (strcmp(substr(filename, pos, cnt), "main") == 0)
-        return Y;
-    else
-        return N;
 }
 
 char *get_cwd(char *filename) {
@@ -587,13 +577,14 @@ YesNo analyze_free_line_text(char *fline, FILE *out_file, EnvironType environ_ty
 
 // ===== MAIN (START)
 
-void transpiler_main(char *filename, char *origin) {
+TranspilerSummary transpiler_main(char *filename, char *origin) {
+    TranspilerSummary summary = {NULL, {0, NULL}, {0, NULL}, N};
+    
     if (is_link_file(filename) == N) {
         syslogger(filename, 0, INVALID_FILE);
-        return;
+        return summary;
     }
 
-    YesNo is_main = is_main_file(filename);
     char *cwd = origin == NULL ? get_cwd(filename) : origin;
     char *namespace = get_namespace(filename);
     char *target_name = get_target_name(filename);
@@ -601,14 +592,14 @@ void transpiler_main(char *filename, char *origin) {
     FILE *in_file = fopen(filename, "r");
     if (in_file == NULL) {
         syslogger(filename, 0, FILE_NOT_FOUND);
-        return;
+        return summary;
     }
 
     FILE *out_file = fopen(target_name, "w");
     if (out_file == NULL) {
         fclose(in_file);
         syslogger(filename, 0, C_COMPILE_ERROR);
-        return;
+        return summary;
     }
     
     TextType text_type = IdentifierText;
@@ -698,6 +689,10 @@ void transpiler_main(char *filename, char *origin) {
                         syslogger(filename, fline_number, FILE_NOT_FOUND);
                         goto cleanup;
                     } else {
+                        char *func_namespace = get_namespace(full_path);
+                        if (in_str_list(imported_functions_header, func_namespace) == Y)
+                            break;
+
                         char *full_path_c = get_target_name(full_path);
                         if (access(full_path_c, F_OK) != 0)
                             transpiler_main(full_path, NULL);
@@ -766,6 +761,10 @@ void transpiler_main(char *filename, char *origin) {
     cleanup:
         fclose(in_file);
         fclose(out_file);
+        free(collected_params);
+        clear_str_list(imported_functions_header);
+
+    return summary;
 }
 
 // ===== MAIN (END)
@@ -776,7 +775,10 @@ void transpiler(char *filename) {
     char *cwd = get_cwd(filename);
     delete_old_files(cwd);
 
-    transpiler_main(filename, cwd);
+    TranspilerSummary summary = transpiler_main(filename, cwd);
+    free(summary.name);
+    summary.imports = clear_str_list(summary.imports);
+    summary.params = clear_str_list(summary.params);
 }
 
 // ===== PROVIDER (END)
