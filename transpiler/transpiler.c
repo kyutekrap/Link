@@ -249,19 +249,13 @@ Property parse_property(char *fline) {
 
     IntList sValue = char_index(fline, '(');
     if (sValue.count != 1) {
-        for (int i = 0; i < sValue.count; i++) {
-            free(sValue.data[i]);
-        }
-        free(sValue.data);
+        clear_int_list(sValue);
         return property_obj;
     }
 
     int offset = strlen(fline) - 1;
     if (fline[offset] != ')') {
-        for (int i = 0; i < sValue.count; i++) {
-            free(sValue.data[i]);
-        }
-        free(sValue.data);
+        clear_int_list(sValue);
         return property_obj;
     }
 
@@ -275,10 +269,7 @@ Property parse_property(char *fline) {
         property_obj.property_type = Param;
     else {
         free(property_type);
-        for (int i = 0; i < sValue.count; i++) {
-            free(sValue.data[i]);
-        }
-        free(sValue.data);
+        clear_int_list(sValue);
         return property_obj;
     }
     free(property_type);
@@ -287,10 +278,7 @@ Property parse_property(char *fline) {
     int cnt = offset - pos;
     property_obj.property_value = substr(fline, pos, cnt);
 
-    for (int i = 0; i < sValue.count; i++) {
-        free(sValue.data[i]);
-    }
-    free(sValue.data);
+    clear_int_list(sValue);
 
     return property_obj;
 }
@@ -477,21 +465,46 @@ YesNo is_function(char *fline) {
     return Y;
 }
 
+YesNo match_params(char *value, int count) {
+    char *temp = str_replace(value, '\'', ' ');
+    temp = str_replace(temp, '"', ' ');
+
+    IntList mlist = char_index(temp, ',');
+    if (mlist.count+1 != count)
+        return N;
+
+    return Y;
+}
+
 Function parse_function(char *fline, StrList imports) {
     Function function = {UnknownFunction, NULL};
 
+    int flen = strlen(fline);
+    if (fline[flen-1] != ')')
+        return function;
+
     IntList sValue = char_index(fline, '(');
+    int pos = sValue.data[0][0]+1;
+    int cnt = flen - pos - 1;
+    function.function_value = substr(fline, pos, cnt);
+
     char *temp = substr(fline, 0, sValue.data[0][0]);
     if (strcmp(temp, "Info") == 0)
     {
+        if (match_params(function.function_value, 1) == N)
+            return function;
         function.function_type = Info;
     }
     else if (strcmp(temp, "Warning") == 0)
     {
+        if (match_params(function.function_value, 1) == N)
+            return function;
         function.function_type = Warning;
     }
     else if (strcmp(temp, "Error") == 0)
     {
+        if (match_params(function.function_value, 1) == N)
+            return function;
         function.function_type = Error;
     }
     else {
@@ -503,15 +516,19 @@ Function parse_function(char *fline, StrList imports) {
             return function;
     }
 
-    int flen = strlen(fline);
-    if (fline[flen-1] != ')')
-        return function;
-
-    int pos = sValue.data[0][0]+1;
-    int cnt = flen - pos - 1;
-    function.function_value = substr(fline, pos, cnt);
-
     return function;
+}
+
+char *form_params(char *params) {
+    IntList mlist = char_index(params, ',');
+    if (mlist.count == 0) return strdup("");
+
+    char *vname = trim(substr(params, 0, mlist.data[0][0]));
+    char *vtype = trim(substr(params, mlist.data[0][0]+1, strlen(params) - mlist.data[0][0]));
+    vtype = join_str(vtype, " ");
+    vtype = join_str(vtype, vname);
+
+    return vtype;
 }
 
 // ===== TOP-DOWN PROCEDURAL GROUPING (END)
@@ -680,15 +697,23 @@ TranspilerSummary transpiler_main(char *filename, char *origin) {
                         }
 
                         char *full_path_c = get_target_name(full_path);
-                        if (access(full_path_c, F_OK) != 0)
-                            transpiler_main(full_path, origin);
+                        if (access(full_path_c, F_OK) != 0) {
+                            TranspilerSummary func_summary = transpiler_main(full_path, origin);
+                            if (in_str_list(func_summary.imports, func_namespace) == Y) {
+                                free(cwd);
+                                free(func_cwd);
+                                free(func_namespace);
+                                break;
+                            }
+                        }
+                            
                         read_and_copy_file(full_path_c, &imported_functions);
                         summary.imports = append_str_list(summary.imports, func_namespace);
                     }
                     free(cwd);
                 }
                 else if (property_obj.property_type == Param) {
-                    summary.params = append_str_list(summary.params, property_obj.property_value);
+                    summary.params = append_str_list(summary.params, form_params(property_obj.property_value));
                 }
                 else if (property_obj.property_type == UnknownProperty) {
                     syslogger(filename, fline_number, UNKNOWN_PROPERTY);
