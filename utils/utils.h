@@ -30,5 +30,7 @@ YesNo in_str_list(StrList str_list, char *checking_value);
 YesNo in_int_list(IntList int_list, int checking_value);
 StrList clear_str_list(StrList mlist);
 IntList clear_int_list(IntList mlist);
+char *join_str_list(StrList mlist);
+char *str_replace(char *str, char from_char, char to_char);
 
 #endif

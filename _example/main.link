@@ -1,5 +1,17 @@
 #flow
 
+// one-line comment
+
+/*
+multi-line comment
+*/
+
+@import("./src/test2.link")
+@debug(true)
+@param(var, char)
+
+test2()
+
 Info("Hello")
 Error("Hello")
 Warning("Hello")

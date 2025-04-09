@@ -38,11 +38,6 @@ typedef enum {
 } PropertyType;
 
 typedef enum {
-    DebugEnv,
-    LiveEnv
-} EnvironType;
-
-typedef enum {
     Info,
     Error,
     Warning,
@@ -186,23 +181,13 @@ char *get_cwd(char *filename) {
     return result;
 }
 
-char *get_namespace(char *filename) {
-    IntList mlist = char_index(filename, '\\');
-    if (mlist.count == 0) {
-        return NULL;
-    }
-
-    int pos = *(mlist.data[mlist.count - 1]) + 1;
-    int offset = 5;
-    int cnt = strlen(filename) - pos - offset;
-
-    char *result = substr(filename, pos, cnt);
-
-    for (int i = 0; i < mlist.count; i++) {
-        free(mlist.data[i]);
-    }
-    free(mlist.data);
-
+char *get_namespace(char *filename, char *cwd) {
+    char *result;
+    int pos = strlen(cwd) + 1;
+    IntList mlist = char_index(filename, '.');
+    int cnt = mlist.data[0][0] - pos;
+    result = substr(filename, pos, cnt);
+    result = str_replace(result, '\\', '_');
     return result;
 }
 
@@ -492,7 +477,7 @@ YesNo is_function(char *fline) {
     return Y;
 }
 
-Function parse_function(char *fline, StrList imported_functions_header) {
+Function parse_function(char *fline, StrList imports) {
     Function function = {UnknownFunction, NULL};
 
     IntList sValue = char_index(fline, '(');
@@ -510,8 +495,8 @@ Function parse_function(char *fline, StrList imported_functions_header) {
         function.function_type = Error;
     }
     else {
-        for (int i=0; i<imported_functions_header.count; i++) {
-            if (strcmp(temp, imported_functions_header.data[i]) == 0)
+        for (int i=0; i<imports.count; i++) {
+            if (strcmp(temp, imports.data[i]) == 0)
                 function.function_type = CustomFunction;
         }
         if (function.function_type == UnknownFunction)
@@ -533,17 +518,17 @@ Function parse_function(char *fline, StrList imported_functions_header) {
 
 // ===== HELPERS (START)
 
-YesNo analyze_free_line_text(char *fline, FILE *out_file, EnvironType environ_type, StrList imported_functions_header) {
+YesNo analyze_free_line_text(char *fline, FILE *out_file, YesNo debug, StrList imports) {
     if (is_function(fline) == N)
         return N;
 
-    Function function = parse_function(fline, imported_functions_header);
+    Function function = parse_function(fline, imports);
     if (function.function_type == UnknownFunction)
         return N;
 
     switch (function.function_type) {
         case Info:
-            if (environ_type == LiveEnv)
+            if (debug == N)
                 break;
             char *info_temp = info(function.function_value);
             fprintf(out_file, "\t%s", info_temp);
@@ -551,7 +536,7 @@ YesNo analyze_free_line_text(char *fline, FILE *out_file, EnvironType environ_ty
             break;
 
         case Warning:
-            if (environ_type == LiveEnv)
+            if (debug == N)
                 break;
             char *warning_temp = warning(function.function_value);
             fprintf(out_file, "\t%s", warning_temp);
@@ -559,7 +544,7 @@ YesNo analyze_free_line_text(char *fline, FILE *out_file, EnvironType environ_ty
             break;
 
         case Error:
-            if (environ_type == LiveEnv)
+            if (debug == N)
                 break;
             char *error_temp = error(function.function_value);
             fprintf(out_file, "\t%s", error_temp);
@@ -567,7 +552,7 @@ YesNo analyze_free_line_text(char *fline, FILE *out_file, EnvironType environ_ty
             break;
         
         default:
-            fprintf(out_file, "\t%s", fline);
+            fprintf(out_file, "\t%s;\n", fline);
     }
 
     return Y;
@@ -579,15 +564,12 @@ YesNo analyze_free_line_text(char *fline, FILE *out_file, EnvironType environ_ty
 
 TranspilerSummary transpiler_main(char *filename, char *origin) {
     TranspilerSummary summary = {NULL, {0, NULL}, {0, NULL}, N};
+    summary.name = get_namespace(filename, origin);
     
     if (is_link_file(filename) == N) {
         syslogger(filename, 0, INVALID_FILE);
         return summary;
     }
-
-    char *cwd = origin == NULL ? get_cwd(filename) : origin;
-    char *namespace = get_namespace(filename);
-    char *target_name = get_target_name(filename);
 
     FILE *in_file = fopen(filename, "r");
     if (in_file == NULL) {
@@ -595,6 +577,7 @@ TranspilerSummary transpiler_main(char *filename, char *origin) {
         return summary;
     }
 
+    char *target_name = get_target_name(filename);
     FILE *out_file = fopen(target_name, "w");
     if (out_file == NULL) {
         fclose(in_file);
@@ -605,13 +588,10 @@ TranspilerSummary transpiler_main(char *filename, char *origin) {
     TextType text_type = IdentifierText;
     CommentType comment_type = OneLineComment;
     IdentifierType identifier_type = Flow;
-    EnvironType environ_type = DebugEnv;
 
     char fline[1024];
     int fline_number = 0;
-    char *collected_params = NULL;
     char *imported_functions = NULL;
-    StrList imported_functions_header = {0, NULL};
     while (fgets(fline, sizeof(fline), in_file)) {
         fline_number ++;
 
@@ -646,14 +626,14 @@ TranspilerSummary transpiler_main(char *filename, char *origin) {
             
             case PropertyText:
                 if (is_property(fline) == N) {
-                    if (environ_type == DebugEnv && origin != NULL)
+                    if (summary.debug == Y && origin != NULL)
                         fputs(HEADER, out_file);
                     if (imported_functions != NULL) {
                         fwrite(imported_functions, 1, strlen(imported_functions), out_file);
                         free(imported_functions);
                     }
-                    fprintf(out_file, "void %s(%s) {\n", namespace, collected_params == NULL ? "" : collected_params);
-                    if (environ_type == DebugEnv) {
+                    fprintf(out_file, "void %s(%s) {\n", summary.name, join_str_list(summary.params));
+                    if (summary.debug == Y) {
                         if (identifier_type == Flow) {
                             char *flow_s_temp = flow_s();
                             fputs(flow_s_temp, out_file);
@@ -667,7 +647,7 @@ TranspilerSummary transpiler_main(char *filename, char *origin) {
                         fputs("\n", out_file);
                     }
                     if (identifier_type == Flow) {
-                        if (analyze_free_line_text(fline, out_file, environ_type, imported_functions_header) == N) {
+                        if (analyze_free_line_text(fline, out_file, summary.debug, summary.imports) == N) {
                             syslogger(filename, fline_number, UNKNOWN_FUNCTION);
                             goto cleanup;
                         }
@@ -679,29 +659,36 @@ TranspilerSummary transpiler_main(char *filename, char *origin) {
                 }
                 Property property_obj = parse_property(fline);
                 if (property_obj.property_type == Debug) {
-                    environ_type = (strcmp(property_obj.property_value, "true") == 0) ? DebugEnv : LiveEnv;
+                    summary.debug = (strcmp(property_obj.property_value, "true") == 0) ? Y : N;
                 }
                 else if (property_obj.property_type == Import) {
                     property_obj.property_value = extract_string(property_obj.property_value);
+                    char *cwd = get_cwd(filename);
                     char full_path[PATH_MAX];
                     get_full_path(cwd, property_obj.property_value, full_path);
                     if (full_path == NULL) {
                         syslogger(filename, fline_number, FILE_NOT_FOUND);
                         goto cleanup;
                     } else {
-                        char *func_namespace = get_namespace(full_path);
-                        if (in_str_list(imported_functions_header, func_namespace) == Y)
+                        char *func_cwd = get_cwd(full_path);
+                        char *func_namespace = get_namespace(full_path, func_cwd);
+                        if (in_str_list(summary.imports, func_namespace) == Y) {
+                            free(cwd);
+                            free(func_cwd);
+                            free(func_namespace);
                             break;
+                        }
 
                         char *full_path_c = get_target_name(full_path);
                         if (access(full_path_c, F_OK) != 0)
-                            transpiler_main(full_path, NULL);
+                            transpiler_main(full_path, origin);
                         read_and_copy_file(full_path_c, &imported_functions);
-                        imported_functions_header = append_str_list(imported_functions_header, get_namespace(full_path));
+                        summary.imports = append_str_list(summary.imports, func_namespace);
                     }
+                    free(cwd);
                 }
                 else if (property_obj.property_type == Param) {
-                    collected_params = join_str(collected_params, property_obj.property_value);
+                    summary.params = append_str_list(summary.params, property_obj.property_value);
                 }
                 else if (property_obj.property_type == UnknownProperty) {
                     syslogger(filename, fline_number, UNKNOWN_PROPERTY);
@@ -711,7 +698,7 @@ TranspilerSummary transpiler_main(char *filename, char *origin) {
             
             case FreeLineText:
                 if (identifier_type == Flow) {
-                    if (analyze_free_line_text(fline, out_file, environ_type, imported_functions_header) == N) {
+                    if (analyze_free_line_text(fline, out_file, summary.debug, summary.imports) == N) {
                         syslogger(filename, fline_number, UNKNOWN_FUNCTION);
                         goto cleanup;
                     }
@@ -723,14 +710,14 @@ TranspilerSummary transpiler_main(char *filename, char *origin) {
     }
 
     if (text_type != FreeLineText) {
-        if (environ_type == DebugEnv && origin != NULL)
+        if (summary.debug == Y && origin != NULL)
             fputs(HEADER, out_file);
         if (imported_functions != NULL) {
             fwrite(imported_functions, 1, strlen(imported_functions), out_file);
             free(imported_functions);
         }
-        fprintf(out_file, "void %s(%s) {\n", namespace, collected_params == NULL ? "" : collected_params);
-        if (environ_type == DebugEnv) {
+        fprintf(out_file, "void %s(%s) {\n", summary.name, join_str_list(summary.params));
+        if (summary.debug == Y) {
             if (identifier_type == Flow) {
                 char *flow_s_temp = flow_s();
                 fputs(flow_s_temp, out_file);
@@ -745,13 +732,13 @@ TranspilerSummary transpiler_main(char *filename, char *origin) {
         }
     }
 
-    if (environ_type == DebugEnv) {
+    if (summary.debug == Y) {
         if (identifier_type == Flow) {
-            char *flow_e_temp = flow_e(namespace);
+            char *flow_e_temp = flow_e(summary.name);
             fputs(flow_e_temp, out_file);
             free(flow_e_temp);
         } else {
-            char *step_e_temp = step_e(namespace);
+            char *step_e_temp = step_e(summary.name);
             fputs(step_e_temp, out_file);
             free(step_e_temp);
         }
@@ -761,8 +748,6 @@ TranspilerSummary transpiler_main(char *filename, char *origin) {
     cleanup:
         fclose(in_file);
         fclose(out_file);
-        free(collected_params);
-        clear_str_list(imported_functions_header);
 
     return summary;
 }
