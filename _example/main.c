@@ -8,7 +8,7 @@ void src_test2() {
 void main(char var) {
 	clock_t __flow_start__, __flow_end__;
 	__flow_start__ = clock();
-	test2();
+	src_test2();
 	printf("[Info]: %s", "Hello");
 	printf("[Error]: %s", "Hello");
 	printf("[Warning]: %s", "Hello");

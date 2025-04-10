@@ -73,7 +73,7 @@ char *str_replace(char *str, char from_char, char to_char) {
 
 // ===== STRING UTILS (END)
 
-// ===== STRUCT UTILS (START)
+// ===== LIST UTILS (START)
 
 IntList append_int_list(IntList int_list, int new_value) {
     int **new_data = realloc(int_list.data, (int_list.count + 1) * sizeof(int *));
@@ -182,4 +182,86 @@ char *join_str_list(StrList mlist) {
     return str;
 }
 
-// ===== STRUCT UTILS (END)
+// ===== LIST UTILS (END)
+
+// ===== MAP UTILS (START)
+
+StrMap str_map_set(StrMap str_map, char *key, char *value) {
+    for (int i = 0; i < str_map.count; ++i) {
+        if (strcmp(str_map.keys.data[i], key) == 0) {
+            free(str_map.values.data[i]);
+            str_map.values.data[i] = strdup(value);
+            return str_map;
+        }
+    }
+
+    str_map.count++;
+
+    str_map.keys.data = realloc(str_map.keys.data, str_map.count * sizeof(char *));
+    str_map.values.data = realloc(str_map.values.data, str_map.count * sizeof(char *));
+
+    str_map.keys.data[str_map.count - 1] = strdup(key);
+    str_map.values.data[str_map.count - 1] = strdup(value);
+
+    str_map.keys.count = str_map.count;
+    str_map.values.count = str_map.count;
+
+    return str_map;
+}
+
+char *str_map_get(StrMap str_map, char *key) {
+    for (int i = 0; i < str_map.count; ++i) {
+        if (strcmp(str_map.keys.data[i], key) == 0) {
+            return str_map.values.data[i];
+        }
+    }
+    return NULL;
+}
+
+StrMap clear_str_map(StrMap str_map) {
+    clear_str_list(str_map.keys);
+    clear_str_list(str_map.values);
+    str_map.count = 0;
+    return str_map;
+}
+
+IntMap int_map_set(IntMap map, char *key, int value) {
+    for (int i = 0; i < map.count; ++i) {
+        if (strcmp(map.keys.data[i], key) == 0) {
+            *(map.values.data[i]) = value;
+            return map;
+        }
+    }
+
+    map.count++;
+
+    map.keys.data = realloc(map.keys.data, map.count * sizeof(char *));
+    map.values.data = realloc(map.values.data, map.count * sizeof(int *));
+
+    map.keys.data[map.count - 1] = strdup(key);
+    map.values.data[map.count - 1] = malloc(sizeof(int));
+    *(map.values.data[map.count - 1]) = value;
+
+    map.keys.count = map.count;
+    map.values.count = map.count;
+
+    return map;
+}
+
+int *int_map_get(IntMap map, char *key) {
+    for (int i = 0; i < map.count; ++i) {
+        if (strcmp(map.keys.data[i], key) == 0) {
+            return map.values.data[i];
+        }
+    }
+    return NULL;
+}
+
+IntMap clear_int_map(IntMap map) {
+    clear_str_list(map.keys);
+    clear_int_list(map.values);
+    map.count = 0;
+    return map;
+}
+
+// ===== MAP UTILS (END)

@@ -55,7 +55,7 @@ typedef struct {
 } Property;
 
 typedef struct {
-    FunctionType function_type;
+    char *function_type;
     char *function_value;
 } Function;
 
@@ -396,7 +396,7 @@ char delete_old_files(char *cwd) {
     }
 }
 
-void read_and_copy_file(const char *full_path_c, char **imported_functions) {
+void read_and_copy_file(const char *full_path_c, char **import_script) {
     FILE *fp = fopen(full_path_c, "r");
     if (fp == NULL)
         return;
@@ -439,8 +439,8 @@ void read_and_copy_file(const char *full_path_c, char **imported_functions) {
     buffer[read_size++] = '\n';
     buffer[read_size] = '\0';
 
-    size_t old_len = (*imported_functions) ? strlen(*imported_functions) : 0;
-    char *new_str = realloc(*imported_functions, old_len + read_size + 1);
+    size_t old_len = (*import_script) ? strlen(*import_script) : 0;
+    char *new_str = realloc(*import_script, old_len + read_size + 1);
     if (!new_str) {
         free(buffer);
         printf("[Error] Memory allocation failed\n");
@@ -450,7 +450,7 @@ void read_and_copy_file(const char *full_path_c, char **imported_functions) {
     memcpy(new_str + old_len, buffer, read_size + 1);
     free(buffer);
 
-    *imported_functions = new_str;
+    *import_script = new_str;
 }
 
 YesNo is_function(char *fline) {
@@ -466,18 +466,42 @@ YesNo is_function(char *fline) {
 }
 
 YesNo match_params(char *value, int count) {
-    char *temp = str_replace(value, '\'', ' ');
-    temp = str_replace(temp, '"', ' ');
+    const int value_len = strlen(value);
 
-    IntList mlist = char_index(temp, ',');
-    if (mlist.count+1 != count)
+    if (count == 0 && value_len == 0)
+        return Y;
+
+    if (value[value_len-1] == ',')
         return N;
 
-    return Y;
+    int numOfParams = 1;
+    char current;
+    char is_str = '\0';
+    for (int i=0; i<value_len; i++) {
+        current = value[i];
+        if (current == '"') {
+            if (is_str == '\0')
+                is_str = current;
+            else if (is_str == '"')
+                is_str = '\0';
+        } else if (current == '\'') {
+            if (is_str == '\0')
+                is_str = current;
+            else if (is_str == '\'')
+                is_str = '\0';
+        } else if (current == ',' && is_str == '\0') {
+            numOfParams ++;
+        }
+    }
+
+    if (numOfParams == count)
+        return Y;
+    else
+        return N;
 }
 
-Function parse_function(char *fline, StrList imports) {
-    Function function = {UnknownFunction, NULL};
+Function parse_function(char *fline, StrMap imports, IntMap params) {
+    Function function = {strdup("UnknownFunction"), NULL};
 
     int flen = strlen(fline);
     if (fline[flen-1] != ')')
@@ -493,27 +517,29 @@ Function parse_function(char *fline, StrList imports) {
     {
         if (match_params(function.function_value, 1) == N)
             return function;
-        function.function_type = Info;
+        function.function_type = "Info";
     }
     else if (strcmp(temp, "Warning") == 0)
     {
         if (match_params(function.function_value, 1) == N)
             return function;
-        function.function_type = Warning;
+        function.function_type = "Warning";
     }
     else if (strcmp(temp, "Error") == 0)
     {
         if (match_params(function.function_value, 1) == N)
             return function;
-        function.function_type = Error;
+        function.function_type = "Error";
     }
     else {
-        for (int i=0; i<imports.count; i++) {
-            if (strcmp(temp, imports.data[i]) == 0)
-                function.function_type = CustomFunction;
-        }
-        if (function.function_type == UnknownFunction)
+        char *sub_to = str_map_get(imports, temp);
+        if (sub_to == NULL)
             return function;
+
+        if (match_params(function.function_value, *int_map_get(params, sub_to)) == N)
+            return function;
+
+        function.function_type = sub_to;
     }
 
     return function;
@@ -535,41 +561,45 @@ char *form_params(char *params) {
 
 // ===== HELPERS (START)
 
-YesNo analyze_free_line_text(char *fline, FILE *out_file, YesNo debug, StrList imports) {
+YesNo analyze_free_line_text(char *fline, FILE *out_file, YesNo debug, StrMap imports, IntMap params) {
     if (is_function(fline) == N)
         return N;
 
-    Function function = parse_function(fline, imports);
-    if (function.function_type == UnknownFunction)
+    Function function = parse_function(fline, imports, params);
+    if (strcmp(function.function_type, "UnknownFunction") == 0)
+    {
         return N;
+    }
+    else if (strcmp(function.function_type, "Info") == 0)
+    {
+        if (debug == N)
+            return Y;
 
-    switch (function.function_type) {
-        case Info:
-            if (debug == N)
-                break;
-            char *info_temp = info(function.function_value);
-            fprintf(out_file, "\t%s", info_temp);
-            free(info_temp);
-            break;
+        char *info_temp = info(function.function_value);
+        fprintf(out_file, "\t%s", info_temp);
+        free(info_temp);
+    }
+    else if (strcmp(function.function_type, "Warning") == 0)
+    {
+        if (debug == N)
+            return Y;
 
-        case Warning:
-            if (debug == N)
-                break;
-            char *warning_temp = warning(function.function_value);
-            fprintf(out_file, "\t%s", warning_temp);
-            free(warning_temp);
-            break;
+        char *warning_temp = warning(function.function_value);
+        fprintf(out_file, "\t%s", warning_temp);
+        free(warning_temp);
+    }
+    else if (strcmp(function.function_type, "Error") == 0)
+    {
+        if (debug == N)
+            return Y;
 
-        case Error:
-            if (debug == N)
-                break;
-            char *error_temp = error(function.function_value);
-            fprintf(out_file, "\t%s", error_temp);
-            free(error_temp);
-            break;
-        
-        default:
-            fprintf(out_file, "\t%s;\n", fline);
+        char *error_temp = error(function.function_value);
+        fprintf(out_file, "\t%s", error_temp);
+        free(error_temp);
+    }
+    else
+    {
+        fprintf(out_file, "\t%s(%s);\n", function.function_type, function.function_value);
     }
 
     return Y;
@@ -605,10 +635,13 @@ TranspilerSummary transpiler_main(char *filename, char *origin) {
     TextType text_type = IdentifierText;
     CommentType comment_type = OneLineComment;
     IdentifierType identifier_type = Flow;
+    
+    char *import_script = NULL;
+    StrMap import_dict = {0, {0, NULL}, {0, NULL}};
+    IntMap param_dict = {0, {0, NULL}, {0, NULL}};
 
     char fline[1024];
     int fline_number = 0;
-    char *imported_functions = NULL;
     while (fgets(fline, sizeof(fline), in_file)) {
         fline_number ++;
 
@@ -645,9 +678,9 @@ TranspilerSummary transpiler_main(char *filename, char *origin) {
                 if (is_property(fline) == N) {
                     if (summary.debug == Y && origin != NULL)
                         fputs(HEADER, out_file);
-                    if (imported_functions != NULL) {
-                        fwrite(imported_functions, 1, strlen(imported_functions), out_file);
-                        free(imported_functions);
+                    if (import_script != NULL) {
+                        fwrite(import_script, 1, strlen(import_script), out_file);
+                        free(import_script);
                     }
                     fprintf(out_file, "void %s(%s) {\n", summary.name, join_str_list(summary.params));
                     if (summary.debug == Y) {
@@ -664,7 +697,7 @@ TranspilerSummary transpiler_main(char *filename, char *origin) {
                         fputs("\n", out_file);
                     }
                     if (identifier_type == Flow) {
-                        if (analyze_free_line_text(fline, out_file, summary.debug, summary.imports) == N) {
+                        if (analyze_free_line_text(fline, out_file, summary.debug, import_dict, param_dict) == N) {
                             syslogger(filename, fline_number, UNKNOWN_FUNCTION);
                             goto cleanup;
                         }
@@ -687,11 +720,9 @@ TranspilerSummary transpiler_main(char *filename, char *origin) {
                         syslogger(filename, fline_number, FILE_NOT_FOUND);
                         goto cleanup;
                     } else {
-                        char *func_cwd = get_cwd(full_path);
-                        char *func_namespace = get_namespace(full_path, func_cwd);
+                        char *func_namespace = get_namespace(full_path, origin);
                         if (in_str_list(summary.imports, func_namespace) == Y) {
                             free(cwd);
-                            free(func_cwd);
                             free(func_namespace);
                             break;
                         }
@@ -701,14 +732,17 @@ TranspilerSummary transpiler_main(char *filename, char *origin) {
                             TranspilerSummary func_summary = transpiler_main(full_path, origin);
                             if (in_str_list(func_summary.imports, func_namespace) == Y) {
                                 free(cwd);
-                                free(func_cwd);
                                 free(func_namespace);
                                 break;
                             }
+                            param_dict = int_map_set(param_dict, func_namespace, func_summary.params.count);
                         }
                             
-                        read_and_copy_file(full_path_c, &imported_functions);
+                        read_and_copy_file(full_path_c, &import_script);
                         summary.imports = append_str_list(summary.imports, func_namespace);
+
+                        char *func_cwd = get_cwd(full_path);
+                        import_dict = str_map_set(import_dict, get_namespace(full_path, func_cwd), func_namespace);
                     }
                     free(cwd);
                 }
@@ -723,7 +757,7 @@ TranspilerSummary transpiler_main(char *filename, char *origin) {
             
             case FreeLineText:
                 if (identifier_type == Flow) {
-                    if (analyze_free_line_text(fline, out_file, summary.debug, summary.imports) == N) {
+                    if (analyze_free_line_text(fline, out_file, summary.debug, import_dict, param_dict) == N) {
                         syslogger(filename, fline_number, UNKNOWN_FUNCTION);
                         goto cleanup;
                     }
@@ -737,9 +771,9 @@ TranspilerSummary transpiler_main(char *filename, char *origin) {
     if (text_type != FreeLineText) {
         if (summary.debug == Y && origin != NULL)
             fputs(HEADER, out_file);
-        if (imported_functions != NULL) {
-            fwrite(imported_functions, 1, strlen(imported_functions), out_file);
-            free(imported_functions);
+        if (import_script != NULL) {
+            fwrite(import_script, 1, strlen(import_script), out_file);
+            free(import_script);
         }
         fprintf(out_file, "void %s(%s) {\n", summary.name, join_str_list(summary.params));
         if (summary.debug == Y) {
@@ -772,7 +806,9 @@ TranspilerSummary transpiler_main(char *filename, char *origin) {
 
     cleanup:
         fclose(in_file);
-        fclose(out_file);
+        fclose(out_file);    
+        import_dict = clear_str_map(import_dict);
+        param_dict = clear_int_map(param_dict);
 
     return summary;
 }
