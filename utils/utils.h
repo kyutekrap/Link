@@ -50,5 +50,6 @@ StrMap clear_str_map(StrMap str_map);
 IntMap int_map_set(IntMap map, char *key, int value);
 int *int_map_get(IntMap map, char *key);
 IntMap clear_int_map(IntMap map);
+StrList str2list(char *str);
 
 #endif

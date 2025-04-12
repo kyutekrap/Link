@@ -8,6 +8,5 @@ multi-line comment
 
 @import("./test2.link")
 @debug(true)
-@param(var, char)
 
 test2()

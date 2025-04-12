@@ -31,11 +31,20 @@ typedef enum {
 } IdentifierType;
 
 typedef enum {
-    Param,
+    Set,
+    Get,
     Debug,
     Import,
     UnknownProperty
 } PropertyType;
+
+typedef enum {
+    String,
+    Integer,
+    Class,
+    UnknownDataType,
+    None
+} DataType;
 
 // ===== BASIC ENUMS (END)
 
@@ -54,7 +63,6 @@ typedef struct {
 typedef struct {
     char *name;
     StrList imports;
-    StrList params;
     YesNo debug;
 } TranspilerSummary;
 
@@ -76,8 +84,14 @@ char *error_code2str(ErrorCode error_code) {
             return "UNKNOWN_FUNCTION";
         case C_COMPILE_ERROR:
             return "C_COMPILE_ERROR";
+        case UNKNOWN_DATATYPE:
+            return "UNKNOWN_DATATYPE";
+        case INVALID_FILENAME:
+            return "INVALID_FILENAME";
+        case PREDEFINED_VARIABLE:
+            return "PREDEFINED_VARIABLE";
     }
-    return "";
+    return strdup("");
 }
 
 void syslogger(char *path, int line, ErrorCode error_code) {
@@ -141,6 +155,18 @@ char *extract_string(char *fline) {
     return substr(fline, 1, strlen(fline)-2);
 }
 
+YesNo is_number(char *var) {
+    if (var == NULL || *var == '\0')
+        return N;
+
+    for (int i = 0; var[i] != '\0'; i++) {
+        if (!isdigit((unsigned char)var[i]))
+            return N;
+    }
+
+    return Y;
+}
+
 // ===== UTILS (END)
 
 // ===== TOP-DOWN PROCEDURAL GROUPING (START)
@@ -181,6 +207,13 @@ char *get_namespace(char *filename, char *cwd) {
     result = substr(filename, pos, cnt);
     result = str_replace(result, '\\', '_');
     return result;
+}
+
+YesNo is_valid_filename(char *filename) {
+    if (isalpha(filename[0]) || filename[0] == '_')
+        return Y;
+    else
+        return N;
 }
 
 char *get_target_name(char *filename) {
@@ -240,8 +273,7 @@ Property parse_property(char *fline) {
     Property property_obj = {UnknownProperty, NULL};
 
     IntList sValue = char_index(fline, '(');
-    if (sValue.count != 1) {
-        clear_int_list(sValue);
+    if (sValue.count == 0) {
         return property_obj;
     }
 
@@ -251,14 +283,15 @@ Property parse_property(char *fline) {
         return property_obj;
     }
 
-    int type_end_pos = *(sValue.data[sValue.count - 1]);
-    char *property_type = substr(fline, 1, type_end_pos - 1);
+    char *property_type = substr(fline, 1, sValue.data[0][0] - 1);
     if (strcmp(property_type, "debug") == 0)
         property_obj.property_type = Debug;
     else if (strcmp(property_type, "import") == 0)
         property_obj.property_type = Import;
-    else if (strcmp(property_type, "param") == 0)
-        property_obj.property_type = Param;
+    else if (strcmp(property_type, "set") == 0)
+        property_obj.property_type = Set;
+    else if (strcmp(property_type, "get") == 0)
+        property_obj.property_type = Get;
     else {
         free(property_type);
         clear_int_list(sValue);
@@ -266,10 +299,9 @@ Property parse_property(char *fline) {
     }
     free(property_type);
 
-    int pos = type_end_pos + 1;
+    int pos = sValue.data[0][0] + 1;
     int cnt = offset - pos;
     property_obj.property_value = substr(fline, pos, cnt);
-
     clear_int_list(sValue);
 
     return property_obj;
@@ -446,8 +478,11 @@ void read_and_copy_file(const char *full_path_c, char **import_script) {
 }
 
 YesNo is_function(char *fline) {
+    if (is_valid_filename(fline) == N)
+        return N;
+
     IntList sValue = char_index(fline, '(');
-    if (sValue.count != 1)
+    if (sValue.count == 0)
         return N;
     
     int offset = strlen(fline) - 1;
@@ -457,42 +492,7 @@ YesNo is_function(char *fline) {
     return Y;
 }
 
-YesNo match_params(char *value, int count) {
-    const int value_len = strlen(value);
-
-    if (count == 0 && value_len == 0)
-        return Y;
-
-    if (value[value_len-1] == ',')
-        return N;
-
-    int numOfParams = 1;
-    char current;
-    char is_str = '\0';
-    for (int i=0; i<value_len; i++) {
-        current = value[i];
-        if (current == '"') {
-            if (is_str == '\0')
-                is_str = current;
-            else if (is_str == '"')
-                is_str = '\0';
-        } else if (current == '\'') {
-            if (is_str == '\0')
-                is_str = current;
-            else if (is_str == '\'')
-                is_str = '\0';
-        } else if (current == ',' && is_str == '\0') {
-            numOfParams ++;
-        }
-    }
-
-    if (numOfParams == count)
-        return Y;
-    else
-        return N;
-}
-
-Function parse_function(char *fline, StrMap imports, IntMap params) {
+Function parse_function(char *fline, StrMap imports) {
     Function function = {strdup("UnknownFunction"), NULL};
 
     int flen = strlen(fline);
@@ -507,34 +507,39 @@ Function parse_function(char *fline, StrMap imports, IntMap params) {
     char *temp = substr(fline, 0, sValue.data[0][0]);
     if (strcmp(temp, "Info") == 0)
     {
-        if (match_params(function.function_value, 1) == N)
+        StrList mlist = str2list(function.function_value);
+        if (mlist.count != 1)
             return function;
+
         function.function_type = "Info";
     }
     else if (strcmp(temp, "Warning") == 0)
     {
-        if (match_params(function.function_value, 1) == N)
+        StrList mlist = str2list(function.function_value);
+        if (mlist.count != 1)
             return function;
+
         function.function_type = "Warning";
     }
     else if (strcmp(temp, "Error") == 0)
     {
-        if (match_params(function.function_value, 1) == N)
+        StrList mlist = str2list(function.function_value);
+        if (mlist.count != 1)
             return function;
+
         function.function_type = "Error";
     }
     else if (strcmp(temp, "Die") == 0)
     {
-        if (match_params(function.function_value, 0) == N)
+        StrList mlist = str2list(function.function_value);
+        if (mlist.count != 0)
             return function;
+
         function.function_type = "Die";
     }
     else {
         char *sub_to = str_map_get(imports, temp);
         if (sub_to == NULL)
-            return function;
-
-        if (match_params(function.function_value, *int_map_get(params, sub_to)) == N)
             return function;
 
         function.function_type = sub_to;
@@ -543,27 +548,60 @@ Function parse_function(char *fline, StrMap imports, IntMap params) {
     return function;
 }
 
-char *form_params(char *params) {
-    IntList mlist = char_index(params, ',');
-    if (mlist.count == 0) return strdup("");
+DataType str2dtype(char *dtype) {
+    if (strcmp(dtype, "str") == 0)
+        return String;
+    else if (strcmp(dtype, "int") == 0)
+        return Integer;
+    else if (strcmp(dtype, "StrList") == 0)
+        return Class;
+    else if (strcmp(dtype, "IntList") == 0)
+        return Class;
+    else
+        return UnknownDataType;
+}
 
-    char *vname = trim(substr(params, 0, mlist.data[0][0]));
-    char *vtype = trim(substr(params, mlist.data[0][0]+1, strlen(params) - mlist.data[0][0]));
-    vtype = join_str(vtype, " ");
-    vtype = join_str(vtype, vname);
+DataType get_dtype(char *str) {
+    int str_len = strlen(str);
+    if (str_len == 0)
+    {
+        return None;
+    }
+    else if (is_number(str) == Y)
+    {
+        return Integer;
+    }
+    else if (
+        str_len >= 2
+        && (
+            str[0] == '"'
+            && str[str_len-1] == '"'
+        )
+        || (
+            str[0] == '\''
+            && str[str_len-1] == '\''
+        )
+    )
+    {
+        return String;
+    }
+    else if (is_function(str) == Y)
+    {
+        return Class;
+    }
 
-    return vtype;
+    return UnknownDataType;
 }
 
 // ===== TOP-DOWN PROCEDURAL GROUPING (END)
 
 // ===== HELPERS (START)
 
-YesNo analyze_free_line_text(char *fline, FILE *out_file, YesNo debug, StrMap imports, IntMap params, IdentifierType identifier_type, char *namespace) {
+YesNo analyze_free_line_text(char *fline, FILE *out_file, YesNo debug, StrMap imports, IdentifierType identifier_type, char *namespace) {
     if (is_function(fline) == N)
         return N;
 
-    Function function = parse_function(fline, imports, params);
+    Function function = parse_function(fline, imports);
     if (strcmp(function.function_type, "UnknownFunction") == 0)
     {
         return N;
@@ -610,6 +648,22 @@ YesNo analyze_free_line_text(char *fline, FILE *out_file, YesNo debug, StrMap im
         }
         fputs("\treturn;\n", out_file);
     }
+    else if (strcmp(function.function_type, "Set") == 0)
+    {
+        StrList mlist = str2list(function.function_value);
+        if (get_dtype(mlist.data[0]) != String)
+            return N;
+
+        DataType dtype = get_dtype(mlist.data[1]);
+        if (dtype == UnknownDataType)
+            return N;
+    }
+    else if (strcmp(function.function_type, "Get") == 0)
+    {
+        StrList mlist = str2list(function.function_value);
+        if (get_dtype(mlist.data[0]) != String)
+            return N;
+    }
     else
     {
         fprintf(out_file, "\t%s(%s);\n", function.function_type, function.function_value);
@@ -623,8 +677,13 @@ YesNo analyze_free_line_text(char *fline, FILE *out_file, YesNo debug, StrMap im
 // ===== MAIN (START)
 
 TranspilerSummary transpiler_main(char *filename, char *origin) {
-    TranspilerSummary summary = {NULL, {0, NULL}, {0, NULL}, N};
+    TranspilerSummary summary = {NULL, {0, NULL}, N};
+
     summary.name = get_namespace(filename, origin);
+    if (is_valid_filename(summary.name) == N) {
+        syslogger(filename, 0, INVALID_FILENAME);
+        return summary;
+    }
     
     if (is_link_file(filename) == N) {
         syslogger(filename, 0, INVALID_FILE);
@@ -650,6 +709,7 @@ TranspilerSummary transpiler_main(char *filename, char *origin) {
     IdentifierType identifier_type = Flow;
     
     char *import_script = NULL;
+    char *global_script = NULL;
     StrMap import_dict = {0, {0, NULL}, {0, NULL}};
     IntMap param_dict = {0, {0, NULL}, {0, NULL}};
 
@@ -662,6 +722,11 @@ TranspilerSummary transpiler_main(char *filename, char *origin) {
             continue;
 
         trim(fline);
+
+        if (!(isalpha(fline[0]) || fline[0] != '_')) {
+            syslogger(filename, fline_number, UNKNOWN_FUNCTION);
+            goto cleanup;
+        }
     
         if (comment_type == OneLineComment) {
             if(is_one_line_comment(fline) == Y)
@@ -691,11 +756,16 @@ TranspilerSummary transpiler_main(char *filename, char *origin) {
                 if (is_property(fline) == N) {
                     if (summary.debug == Y && origin != NULL)
                         fputs(HEADER, out_file);
+                    if (global_script != NULL) {
+                        fputs(global_script, out_file);
+                        free(global_script);
+                        fputs("\n", out_file);
+                    }
                     if (import_script != NULL) {
                         fwrite(import_script, 1, strlen(import_script), out_file);
                         free(import_script);
                     }
-                    fprintf(out_file, "void %s(%s) {\n", summary.name, join_str_list(summary.params));
+                    fprintf(out_file, "void %s() {\n", summary.name);
                     if (summary.debug == Y) {
                         if (identifier_type == Flow) {
                             char *flow_s_temp = flow_s();
@@ -710,7 +780,7 @@ TranspilerSummary transpiler_main(char *filename, char *origin) {
                         fputs("\n", out_file);
                     }
                     if (identifier_type == Flow) {
-                        if (analyze_free_line_text(fline, out_file, summary.debug, import_dict, param_dict, identifier_type, summary.name) == N) {
+                        if (analyze_free_line_text(fline, out_file, summary.debug, import_dict, identifier_type, summary.name) == N) {
                             syslogger(filename, fline_number, UNKNOWN_FUNCTION);
                             goto cleanup;
                         }
@@ -734,6 +804,11 @@ TranspilerSummary transpiler_main(char *filename, char *origin) {
                         goto cleanup;
                     } else {
                         char *func_namespace = get_namespace(full_path, origin);
+                        if (is_valid_filename(func_namespace) == N) {
+                            syslogger(filename, fline_number, INVALID_FILENAME);
+                            goto cleanup;
+                        }
+
                         if (in_str_list(summary.imports, func_namespace) == Y) {
                             free(cwd);
                             free(func_namespace);
@@ -748,7 +823,6 @@ TranspilerSummary transpiler_main(char *filename, char *origin) {
                                 free(func_namespace);
                                 break;
                             }
-                            param_dict = int_map_set(param_dict, func_namespace, func_summary.params.count);
                         }
                             
                         read_and_copy_file(full_path_c, &import_script);
@@ -759,8 +833,92 @@ TranspilerSummary transpiler_main(char *filename, char *origin) {
                     }
                     free(cwd);
                 }
-                else if (property_obj.property_type == Param) {
-                    summary.params = append_str_list(summary.params, form_params(property_obj.property_value));
+                else if (property_obj.property_type == Set && identifier_type == Flow) {
+                    StrList mlist = str2list(property_obj.property_value);
+                    if (mlist.count != 2) {
+                        syslogger(filename, fline_number, UNKNOWN_PROPERTY);
+                        goto cleanup;
+                    }
+
+                    if (get_dtype(mlist.data[0]) != String) {
+                        syslogger(filename, fline_number, UNKNOWN_PROPERTY);
+                        goto cleanup;
+                    }
+
+                    DataType dtype = get_dtype(mlist.data[1]);
+                    if (dtype == String)
+                    {
+                        char *vname = extract_string(mlist.data[0]);
+                        if (int_map_get(param_dict, vname) != NULL) {
+                            syslogger(filename, fline_number, PREDEFINED_VARIABLE);
+                            goto cleanup;
+                        }
+
+                        if (global_script == NULL) {
+                            global_script = malloc(1);
+                            global_script[0] = '\0';
+                        }
+
+                        size_t str_len = strlen(extract_string(mlist.data[1])) + 1;
+                        int line1_len = snprintf(NULL, 0, "char *%s = malloc(%zu);\n", vname, str_len);
+                        char *buffer1 = malloc(line1_len + 1);
+                        sprintf(buffer1, "char *%s = malloc(%zu);\n", vname, str_len);
+                        global_script = realloc(global_script, strlen(global_script) + line1_len + 1);
+                        strcat(global_script, buffer1);
+                        free(buffer1);
+
+                        int line2_len = snprintf(NULL, 0, "strcpy(%s, %s);\n", vname, mlist.data[1]);
+                        char *buffer2 = malloc(line2_len + 1);
+                        sprintf(buffer2, "strcpy(%s, %s);\n", vname, mlist.data[1]);
+                        global_script = realloc(global_script, strlen(global_script) + line2_len + 1);
+                        strcat(global_script, buffer2);
+                        free(buffer2);
+
+                        param_dict = int_map_set(param_dict, vname, String);
+                        free(vname);
+                    }
+                    else if (dtype == Integer)
+                    {
+                        char *vname = extract_string(mlist.data[0]);
+                        if (int_map_get(param_dict, vname) != NULL) {
+                            syslogger(filename, fline_number, PREDEFINED_VARIABLE);
+                            goto cleanup;
+                        }
+
+                        if (global_script == NULL) {
+                            global_script = malloc(1);
+                            global_script[0] = '\0';
+                        }
+
+                        int line1_len = snprintf(NULL, 0, "int %s = %s;\n", vname, mlist.data[1]);
+                        char *buffer1 = malloc(line1_len + 1);
+                        sprintf(buffer1, "int %s = %s;\n", vname, mlist.data[1]);
+                        global_script = realloc(global_script, strlen(global_script) + line1_len + 1);
+                        strcat(global_script, buffer1);
+                        free(buffer1);
+
+                        param_dict = int_map_set(param_dict, vname, Integer);
+                        free(vname);
+                    }
+                    else if (dtype == Class)
+                    {
+                        char *vname = extract_string(mlist.data[0]);
+                        if (int_map_get(param_dict, vname) != NULL) {
+                            syslogger(filename, fline_number, PREDEFINED_VARIABLE);
+                            goto cleanup;
+                        }
+                    }
+                    else {
+                        syslogger(filename, fline_number, UNKNOWN_DATATYPE);
+                        goto cleanup;
+                    }
+                }
+                else if (property_obj.property_type == Get && identifier_type == Step) {
+                    StrList mlist = str2list(property_obj.property_value);
+                    if (mlist.count != 1) {
+                        syslogger(filename, fline_number, UNKNOWN_PROPERTY);
+                        goto cleanup;
+                    }
                 }
                 else if (property_obj.property_type == UnknownProperty) {
                     syslogger(filename, fline_number, UNKNOWN_PROPERTY);
@@ -770,7 +928,7 @@ TranspilerSummary transpiler_main(char *filename, char *origin) {
             
             case FreeLineText:
                 if (identifier_type == Flow) {
-                    if (analyze_free_line_text(fline, out_file, summary.debug, import_dict, param_dict, identifier_type, summary.name) == N) {
+                    if (analyze_free_line_text(fline, out_file, summary.debug, import_dict, identifier_type, summary.name) == N) {
                         syslogger(filename, fline_number, UNKNOWN_FUNCTION);
                         goto cleanup;
                     }
@@ -784,11 +942,16 @@ TranspilerSummary transpiler_main(char *filename, char *origin) {
     if (text_type != FreeLineText) {
         if (summary.debug == Y && origin != NULL)
             fputs(HEADER, out_file);
+        if (global_script != NULL) {
+            fputs(global_script, out_file);
+            free(global_script);
+            fputs("\n", out_file);
+        }
         if (import_script != NULL) {
             fwrite(import_script, 1, strlen(import_script), out_file);
             free(import_script);
         }
-        fprintf(out_file, "void %s(%s) {\n", summary.name, join_str_list(summary.params));
+        fprintf(out_file, "void %s() {\n", summary.name);
         if (summary.debug == Y) {
             if (identifier_type == Flow) {
                 char *flow_s_temp = flow_s();
@@ -837,7 +1000,6 @@ void transpiler(char *filename) {
     TranspilerSummary summary = transpiler_main(filename, cwd);
     free(summary.name);
     summary.imports = clear_str_list(summary.imports);
-    summary.params = clear_str_list(summary.params);
 }
 
 // ===== PROVIDER (END)

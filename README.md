@@ -24,9 +24,17 @@ To create a lightweight, utility-focused language that blends the **simplicity o
 - `#Flow` - Inherited from PyLink's Flow
 - `#Step` - Inherited from PyLink's Step
 - `@debug()` - Inherited from PyLink's Debug
-- `@param()` - Set parameters for function
+- `@set()` - Set global variable in Flow
+- `@get()` - Get global variable in Step
 - `@import()` - Import external functions
 - `Info()` – Inherited from PyLink's Debugger  
 - `Warning()` – Inherited from PyLink's Debugger  
 - `Error()` – Inherited from PyLink's Debugger
 - `Die()` - Inherited from PyLink's System.Die
+
+### 🗑️ Removed Functions
+- `@param()` - Set parameters for function
+- `SetStep()` - Inherited from PyLink's SetStep
+- `GetStep()` - Inherited from PyLink's GetStep
+- `SetFlow()` - Inherited from PyLink's SetFlow
+- `GetFlow()` - Inherited from PyLink's GetFlow

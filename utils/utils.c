@@ -182,6 +182,54 @@ char *join_str_list(StrList mlist) {
     return str;
 }
 
+StrList str2list(char *str) {
+    StrList mlist = {0, NULL};
+    const int value_len = strlen(str);
+    if (value_len == 0)
+        return mlist;
+
+    int start = 0;
+    int in_quotes = 0;
+    int paren_depth = 0;
+
+    for (int i = 0; i <= value_len; ++i) {
+        char c = str[i];
+
+        if (c == '"') {
+            in_quotes = !in_quotes;
+        } else if (!in_quotes) {
+            if (c == '(') {
+                paren_depth++;
+            } else if (c == ')') {
+                if (paren_depth > 0)
+                    paren_depth--;
+            } else if ((c == ',' || c == '\0') && paren_depth == 0) {
+                int token_len = i - start;
+                while (token_len > 0 && isspace(str[start])) {
+                    start++;
+                    token_len--;
+                }
+                while (token_len > 0 && isspace(str[start + token_len - 1])) {
+                    token_len--;
+                }
+
+                if (token_len > 0) {
+                    char *token = (char *)malloc(token_len + 1);
+                    strncpy(token, str + start, token_len);
+                    token[token_len] = '\0';
+
+                    mlist.data = (char **)realloc(mlist.data, sizeof(char *) * (mlist.count + 1));
+                    mlist.data[mlist.count++] = token;
+                }
+
+                start = i + 1;
+            }
+        }
+    }
+
+    return mlist;
+}
+
 // ===== LIST UTILS (END)
 
 // ===== MAP UTILS (START)
