@@ -190,7 +190,8 @@ StrList str2list(char *str) {
 
     int start = 0;
     int in_quotes = 0;
-    int paren_depth = 0;
+    int bracket_depth = 0;
+    int brace_depth = 0;
 
     for (int i = 0; i <= value_len; ++i) {
         char c = str[i];
@@ -198,17 +199,24 @@ StrList str2list(char *str) {
         if (c == '"') {
             in_quotes = !in_quotes;
         } else if (!in_quotes) {
-            if (c == '(') {
-                paren_depth++;
-            } else if (c == ')') {
-                if (paren_depth > 0)
-                    paren_depth--;
-            } else if ((c == ',' || c == '\0') && paren_depth == 0) {
+            if (c == '[') {
+                bracket_depth++;
+            } else if (c == ']') {
+                if (bracket_depth > 0)
+                    bracket_depth--;
+            } else if (c == '{') {
+                brace_depth++;
+            } else if (c == '}') {
+                if (brace_depth > 0)
+                    brace_depth--;
+            } else if ((c == ',' || c == '\0') && bracket_depth == 0 && brace_depth == 0) {
                 int token_len = i - start;
+
                 while (token_len > 0 && isspace(str[start])) {
                     start++;
                     token_len--;
                 }
+
                 while (token_len > 0 && isspace(str[start + token_len - 1])) {
                     token_len--;
                 }

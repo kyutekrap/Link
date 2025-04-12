@@ -20,17 +20,23 @@ To create a lightweight, utility-focused language that blends the **simplicity o
 
 ---
 
+### 🔤 Naming Convention
+- **Functions:** Lower snake case 🐍
+- **Variables:** Upper camel case 🐫
+
+---
+
 ### 🧰 Built-in Functions  
-- `#Flow` - Inherited from PyLink's Flow
-- `#Step` - Inherited from PyLink's Step
+- `#flow` - Inherited from PyLink's Flow
+- `#step` - Inherited from PyLink's Step
 - `@debug()` - Inherited from PyLink's Debug
 - `@set()` - Set global variable in Flow
 - `@get()` - Get global variable in Step
-- `@import()` - Import external functions
-- `Info()` – Inherited from PyLink's Debugger  
-- `Warning()` – Inherited from PyLink's Debugger  
-- `Error()` – Inherited from PyLink's Debugger
-- `Die()` - Inherited from PyLink's System.Die
+- `@import()` - Import Steps to Flow
+- `info()` – Inherited from PyLink's Debugger  
+- `warning()` – Inherited from PyLink's Debugger  
+- `error()` – Inherited from PyLink's Debugger
+- `die()` - Inherited from PyLink's System.Die
 
 ### 🗑️ Removed Functions
 - `@param()` - Set parameters for function
@@ -38,3 +44,6 @@ To create a lightweight, utility-focused language that blends the **simplicity o
 - `GetStep()` - Inherited from PyLink's GetStep
 - `SetFlow()` - Inherited from PyLink's SetFlow
 - `GetFlow()` - Inherited from PyLink's GetFlow
+- `Decision()` - Inherited from PyLink's Decision
+- `RecursiveFlow()` - Inherited from PyLink's RecursiveFlow
+- `RecursiveStep()` - Inherited from PyLink's RecursiveStep
