@@ -18,6 +18,7 @@ ABCD[2] = 3;
 void src_test2() {
 	clock_t __step_start__, __step_end__;
 	__step_start__ = clock();
+	printf("[Warning]: %s", A);
 	__step_end__ = clock();
 	printf("[Info]: %.2fms elapsed (src\test2)", ((double)(__step_end__-__step_start__)/CLOCKS_PER_SEC) * 1000);
 }
@@ -27,3 +28,7 @@ void main() {
 	__flow_start__ = clock();
 	src\test2();
 	printf("[Info]: %s", A);
+	printf("[Error]: %s", AB);
+	__flow_end__ = clock();
+	printf("[Info]: %.2fms elapsed (main)", ((double)(__flow_end__-__flow_start__)/CLOCKS_PER_SEC) * 1000);
+}

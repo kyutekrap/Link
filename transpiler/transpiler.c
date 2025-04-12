@@ -716,7 +716,7 @@ ErrorCode analyze_free_line_text(char *fline, FILE *out_file, YesNo debug, StrMa
 
 // ===== MAIN (START)
 
-TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug) {
+TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, IntMap *params) {
     TranspilerSummary summary = {NULL, {0, NULL}, debug, Flow};
 
     char *namespace = get_namespace(filename, origin);
@@ -750,7 +750,6 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug) {
     char *import_script = NULL;
     char *global_script = NULL;
     StrMap import_dict = {0, {0, NULL}, {0, NULL}};
-    IntMap param_dict = {0, {0, NULL}, {0, NULL}};
 
     char fline[1024];
     int fline_number = 0;
@@ -820,7 +819,7 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug) {
                     } else {
                         fputs("\n", out_file);
                     }
-                    ErrorCode err_cd = analyze_free_line_text(fline, out_file, summary.debug, import_dict, summary.identifier_type, summary.name, param_dict);
+                    ErrorCode err_cd = analyze_free_line_text(fline, out_file, summary.debug, import_dict, summary.identifier_type, summary.name, *params);
                     if (err_cd != NO_ERROR) {
                         syslogger(filename, fline_number, err_cd);
                         goto cleanup;
@@ -855,7 +854,7 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug) {
 
                         char *full_path_c = get_target_name(full_path);
                         if (access(full_path_c, F_OK) != 0) {
-                            TranspilerSummary func_summary = transpiler_main(full_path, origin, summary.debug);
+                            TranspilerSummary func_summary = transpiler_main(full_path, origin, summary.debug, params);
                             if (func_summary.identifier_type != Step) {
                                 free(cwd);
                                 free(func_namespace);
@@ -893,7 +892,7 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug) {
                     if (dtype == String)
                     {
                         char *vname = extract_string(mlist.data[0]);
-                        if (int_map_get(param_dict, vname) != NULL) {
+                        if (int_map_get(*params, vname) != NULL) {
                             syslogger(filename, fline_number, PREDEFINED_VARIABLE);
                             goto cleanup;
                         }
@@ -911,13 +910,13 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug) {
                         global_script = join_str(global_script, buffer2);
                         free(buffer2);
 
-                        param_dict = int_map_set(param_dict, vname, String);
+                        *params = int_map_set(*params, vname, String);
                         free(vname);
                     }
                     else if (dtype == Integer)
                     {
                         char *vname = extract_string(mlist.data[0]);
-                        if (int_map_get(param_dict, vname) != NULL) {
+                        if (int_map_get(*params, vname) != NULL) {
                             syslogger(filename, fline_number, PREDEFINED_VARIABLE);
                             goto cleanup;
                         }
@@ -928,13 +927,13 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug) {
                         global_script = join_str(global_script, buffer1);
                         free(buffer1);
 
-                        param_dict = int_map_set(param_dict, vname, Integer);
+                        *params = int_map_set(*params, vname, Integer);
                         free(vname);
                     }
                     else if (dtype == List)
                     {
                         char *vname = extract_string(mlist.data[0]);
-                        if (int_map_get(param_dict, vname) != NULL) {
+                        if (int_map_get(*params, vname) != NULL) {
                             syslogger(filename, fline_number, PREDEFINED_VARIABLE);
                             goto cleanup;
                         }
@@ -957,7 +956,7 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug) {
                                 free(buffer2);
                             }
 
-                            param_dict = int_map_set(param_dict, vname, StringList);
+                            *params = int_map_set(*params, vname, StringList);
                             free(vname);
                         }
                         else if (ltype == Integer) {
@@ -977,7 +976,7 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug) {
                                 free(buffer2);
                             }
 
-                            param_dict = int_map_set(param_dict, vname, IntegerList);
+                            *params = int_map_set(*params, vname, IntegerList);
                             free(vname);
                         }
                         else {
@@ -1005,7 +1004,7 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug) {
                 break;
             
             case FreeLineText:
-                ErrorCode err_cd = analyze_free_line_text(fline, out_file, summary.debug, import_dict, summary.identifier_type, summary.name, param_dict);
+                ErrorCode err_cd = analyze_free_line_text(fline, out_file, summary.debug, import_dict, summary.identifier_type, summary.name, *params);
                 if (err_cd != NO_ERROR) {
                     syslogger(filename, fline_number, err_cd);
                     goto cleanup;
@@ -1062,7 +1061,6 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug) {
         fclose(in_file);
         fclose(out_file);    
         import_dict = clear_str_map(import_dict);
-        param_dict = clear_int_map(param_dict);
 
     return summary;
 }
@@ -1075,7 +1073,8 @@ void transpiler(char *filename) {
     char *cwd = get_cwd(filename);
     delete_old_files(cwd);
 
-    TranspilerSummary summary = transpiler_main(filename, cwd, N);
+    IntMap params = {0, {0, NULL}, {0, NULL}};
+    TranspilerSummary summary = transpiler_main(filename, cwd, N, &params);
     free(cwd);
     free(summary.name);
     summary.imports = clear_str_list(summary.imports);
