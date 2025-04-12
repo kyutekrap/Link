@@ -21,6 +21,12 @@ To create a lightweight, utility-focused language that blends the **simplicity o
 ---
 
 ### 🧰 Built-in Functions  
+- `#Flow` - Inherited from PyLink's Flow
+- `#Step` - Inherited from PyLink's Step
+- `@debug()` - Inherited from PyLink's Debug
+- `@param()` - Set parameters for function
+- `@import()` - Import external functions
 - `Info()` – Inherited from PyLink's Debugger  
 - `Warning()` – Inherited from PyLink's Debugger  
 - `Error()` – Inherited from PyLink's Debugger
+- `Die()` - Inherited from PyLink's System.Die

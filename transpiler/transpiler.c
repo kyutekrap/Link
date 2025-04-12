@@ -37,14 +37,6 @@ typedef enum {
     UnknownProperty
 } PropertyType;
 
-typedef enum {
-    Info,
-    Error,
-    Warning,
-    UnknownFunction,
-    CustomFunction
-} FunctionType;
-
 // ===== BASIC ENUMS (END)
 
 // ===== BASIC STRUCTS (START)
@@ -531,6 +523,12 @@ Function parse_function(char *fline, StrMap imports, IntMap params) {
             return function;
         function.function_type = "Error";
     }
+    else if (strcmp(temp, "Die") == 0)
+    {
+        if (match_params(function.function_value, 0) == N)
+            return function;
+        function.function_type = "Die";
+    }
     else {
         char *sub_to = str_map_get(imports, temp);
         if (sub_to == NULL)
@@ -561,7 +559,7 @@ char *form_params(char *params) {
 
 // ===== HELPERS (START)
 
-YesNo analyze_free_line_text(char *fline, FILE *out_file, YesNo debug, StrMap imports, IntMap params) {
+YesNo analyze_free_line_text(char *fline, FILE *out_file, YesNo debug, StrMap imports, IntMap params, IdentifierType identifier_type, char *namespace) {
     if (is_function(fline) == N)
         return N;
 
@@ -596,6 +594,21 @@ YesNo analyze_free_line_text(char *fline, FILE *out_file, YesNo debug, StrMap im
         char *error_temp = error(function.function_value);
         fprintf(out_file, "\t%s", error_temp);
         free(error_temp);
+    }
+    else if (strcmp(function.function_type, "Die") == 0)
+    {
+        if (debug == Y) {
+            if (identifier_type == Flow) {
+                char *flow_e_temp = flow_e(namespace);
+                fputs(flow_e_temp, out_file);
+                free(flow_e_temp);
+            } else {
+                char *step_e_temp = step_e(namespace);
+                fputs(step_e_temp, out_file);
+                free(step_e_temp);
+            }
+        }
+        fputs("\treturn;\n", out_file);
     }
     else
     {
@@ -697,7 +710,7 @@ TranspilerSummary transpiler_main(char *filename, char *origin) {
                         fputs("\n", out_file);
                     }
                     if (identifier_type == Flow) {
-                        if (analyze_free_line_text(fline, out_file, summary.debug, import_dict, param_dict) == N) {
+                        if (analyze_free_line_text(fline, out_file, summary.debug, import_dict, param_dict, identifier_type, summary.name) == N) {
                             syslogger(filename, fline_number, UNKNOWN_FUNCTION);
                             goto cleanup;
                         }
@@ -757,7 +770,7 @@ TranspilerSummary transpiler_main(char *filename, char *origin) {
             
             case FreeLineText:
                 if (identifier_type == Flow) {
-                    if (analyze_free_line_text(fline, out_file, summary.debug, import_dict, param_dict) == N) {
+                    if (analyze_free_line_text(fline, out_file, summary.debug, import_dict, param_dict, identifier_type, summary.name) == N) {
                         syslogger(filename, fline_number, UNKNOWN_FUNCTION);
                         goto cleanup;
                     }
