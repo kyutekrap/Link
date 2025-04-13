@@ -13,13 +13,11 @@ multi-line comment
 
 @import("./src/test2.link")
 
-test2()
+depends(A, {[eq("Hello")], [test2()]})
+depends(AB, {[gt(0), lt(100)], [test2(), die()]})
 
-// depends(A, {[eq("Hello")], [test2()]})
-// depends(AB, {[gt(0), lt(0)], [test2(), die()]})
-
-// while(AB, {[gt(0)], [test2()]})
-// while(AB, {[gt(0), gt(100)], [test2(), die()]})
+while(A, {[gt(0)], [test2()]})
+while(AB, {[gt(0), gt(100)], [test2(), die()]})
 
 info(A)
 error(AB)

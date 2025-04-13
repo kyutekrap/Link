@@ -45,9 +45,27 @@ typedef enum {
     List,
     StringList,
     IntegerList,
+    Map,
     UnknownDataType,
     None
 } DataType;
+
+typedef enum {
+    EqualTo,
+    GreaterThan,
+    LesserThan,
+    GreaterOrEqual,
+    LesserOrEqual,
+    UnknownComparator
+} ComparatorType;
+
+typedef enum {
+    StringLiteral,
+    IntegerStatic,
+    StringVar,
+    IntegerVar,
+    UnknownComparatorDataType
+} ComparatorDataType;
 
 // ===== BASIC ENUMS (END)
 
@@ -69,6 +87,11 @@ typedef struct {
     YesNo debug;
     IdentifierType identifier_type;
 } TranspilerSummary;
+
+typedef struct {
+    ComparatorType type;
+    char *value;
+} Comparator;
 
 // ===== BASIC STRUCTS (END)
 
@@ -204,6 +227,50 @@ DataType get_ltype(char *str) {
     }
 
     return ltype;
+}
+
+Comparator parse_comparator(char *str) {
+    Comparator comparator = {UnknownComparator, NULL};
+
+    int str_len = strlen(str);
+    if (is_empty(str) == Y || str_len < 5)
+        return comparator;
+
+    IntList mlist = char_index(str, '(');
+    if (mlist.count != 1)
+        return comparator;
+
+    char *type = substr(str, 0, *mlist.data[0]);
+    if (strcmp(type, "eq") == 0) comparator.type = EqualTo;
+    else if (strcmp(type, "gt") == 0) comparator.type = GreaterThan;
+    else if (strcmp(type, "lt") == 0) comparator.type = LesserThan;
+    else if (strcmp(type, "gte") == 0) comparator.type = GreaterOrEqual;
+    else if (strcmp(type, "lte") == 0) comparator.type = LesserOrEqual;
+    else return comparator;
+
+    comparator.value = substr(str, *mlist.data[0] + 1, str_len - *mlist.data[0] - 2);
+    return comparator;
+}
+
+ComparatorDataType get_comparator_type(char *str, IntMap params) {
+    int str_len = strlen(str);
+    if (str_len >= 2 && str[0] == '"' && str[str_len-1] == '"') {
+        return StringLiteral;
+    }
+    else if (is_number(str) == Y) {
+        return IntegerStatic;
+    }
+    else {
+        int *temp_type = int_map_get(params, str);
+        if (temp_type == NULL)
+            return UnknownDataType;
+        else if (*temp_type == String)
+            return StringVar;
+        else if (*temp_type == Integer)
+            return IntegerVar;
+    }
+
+    return UnknownComparatorDataType;
 }
 
 // ===== UTILS (END)
@@ -575,6 +642,22 @@ Function parse_function(char *fline, StrMap imports) {
 
         function.function_type = "die";
     }
+    else if (strcmp(temp, "depends") == 0)
+    {
+        StrList mlist = str2list(function.function_value);
+        if (mlist.count != 2)
+            return function;
+
+        function.function_type = "depends";
+    }
+    else if (strcmp(temp, "while") == 0)
+    {
+        StrList mlist = str2list(function.function_value);
+        if (mlist.count != 2)
+            return function;
+
+        function.function_type = "while";
+    }
     else {
         char *sub_to = str_map_get(imports, temp);
         if (sub_to == NULL)
@@ -608,8 +691,42 @@ DataType get_dtype(char *str) {
     {
         return List;
     }
+    else if (str_len >= 7 && str[0] == '{' && str[str_len-1] == '}')
+    {
+        return Map;
+    }
 
     return UnknownDataType;
+}
+
+char *print_die(char *namespace, YesNo debug, IdentifierType identifier_type) {
+    char *output = NULL;
+    char *extra = NULL;
+
+    if (debug == Y) {
+        if (identifier_type == Flow) {
+            extra = flow_e(namespace);
+        } else {
+            extra = step_e(namespace);
+        }
+    }
+
+    const char *return_line = " return;";
+
+    size_t extra_len = extra ? strlen(extra) : 0;
+    size_t total_len = extra_len + strlen(return_line) + 1;
+
+    output = malloc(total_len);
+    if (!output) return NULL;
+
+    output[0] = '\0';
+    if (extra) {
+        strcat(output, extra);
+    }
+    strcat(output, return_line);
+
+    if (extra) free(extra);
+    return output;
 }
 
 // ===== TOP-DOWN PROCEDURAL GROUPING (END)
@@ -675,18 +792,7 @@ ErrorCode analyze_free_line_text(char *fline, FILE *out_file, YesNo debug, StrMa
     }
     else if (strcmp(function.function_type, "die") == 0)
     {
-        if (debug == Y) {
-            if (identifier_type == Flow) {
-                char *flow_e_temp = flow_e(namespace);
-                fputs(flow_e_temp, out_file);
-                free(flow_e_temp);
-            } else {
-                char *step_e_temp = step_e(namespace);
-                fputs(step_e_temp, out_file);
-                free(step_e_temp);
-            }
-        }
-        fputs("\treturn;\n", out_file);
+        fputs(print_die(namespace, debug, identifier_type), out_file);
     }
     else if (strcmp(function.function_type, "set") == 0)
     {
@@ -703,6 +809,371 @@ ErrorCode analyze_free_line_text(char *fline, FILE *out_file, YesNo debug, StrMa
         StrList mlist = str2list(function.function_value);
         if (get_dtype(mlist.data[0]) != String)
             return UNKNOWN_FUNCTION;
+    }
+    else if (strcmp(function.function_type, "depends") == 0)
+    {
+        StrList mlist = str2list(function.function_value);
+        if (int_map_get(params, mlist.data[0]) == NULL)
+            return UNDEFINED_VARIABLE;
+
+        if (get_dtype(mlist.data[1]) != Map)
+            return UNKNOWN_FUNCTION;
+
+        StrList map_args = str2list(substr(mlist.data[1], 1, strlen(mlist.data[1])-2));
+        if (map_args.count != 2)
+            return UNKNOWN_FUNCTION;
+
+        if (!(get_dtype(map_args.data[0]) == List && get_dtype(map_args.data[1]) == List))
+            return UNKNOWN_FUNCTION;
+
+        StrList args1 = str2list(substr(map_args.data[0], 1, strlen(map_args.data[0])-2));
+        StrList args2 = str2list(substr(map_args.data[1], 1, strlen(map_args.data[1])-2));
+
+        if (args1.count != args2.count)
+            return UNKNOWN_FUNCTION;
+
+        Function temp_func;
+        Comparator comparator;
+        ComparatorDataType comparator_type;
+        for (int i=0; i<args1.count; i++) {
+            comparator = parse_comparator(args1.data[i]);
+            if (comparator.type == UnknownComparator)
+                return UNKNOWN_FUNCTION;
+
+            comparator_type = get_comparator_type(comparator.value, params);
+            if (comparator_type == UnknownComparatorDataType)
+                return UNKNOWN_FUNCTION;
+
+            temp_func = parse_function(args2.data[i], imports);
+            if (temp_func.function_type == "UnknownFunction")
+                return UNKNOWN_FUNCTION;
+
+            if (strcmp(temp_func.function_type, "die") == 0) {
+                char *inside = print_die(namespace, debug, identifier_type);
+                size_t total_len = strlen(inside) + strlen("{ }\n") + 1;
+
+                char *wrapped = malloc(total_len);
+                if (!wrapped)
+                    return C_COMPILE_ERROR;
+
+                sprintf(wrapped, "{ %s }\n", inside);
+                free(inside);
+                temp_func.function_type = wrapped;
+            } else {
+                size_t len = strlen(temp_func.function_type) + strlen("();\n") + 1;
+                char *new_str = malloc(len);
+                if (new_str == NULL)
+                    return C_COMPILE_ERROR;
+                
+                sprintf(new_str, "{ %s(); }\n", temp_func.function_type);
+                temp_func.function_type = new_str;
+            }
+
+            if (comparator.type == EqualTo) {
+                if (comparator_type == String) {
+                    if (i == 0) {
+                        if (comparator_type == StringLiteral) {
+                            fprintf(out_file, "\tif (strcmp(%s, strdup(%s)) == 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        } else if (comparator_type == StringVar) {
+                            fprintf(out_file, "\tif (strcmp(%s, %s) == 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        }
+                    } else {
+                        if (comparator_type == StringLiteral) {
+                            fprintf(out_file, "\telse if (strcmp(%s, strdup(%s)) == 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        } else if (comparator_type == StringVar) {
+                            fprintf(out_file, "\telse if (strcmp(%s, %s) == 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        }
+                    }
+                }
+                else if (comparator_type == Integer) {
+                    if (i == 0) {
+                        fprintf(out_file, "\tif (%s == %s) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                    } else {
+                        fprintf(out_file, "\telse if (%s == %s) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                    }
+                }
+            }
+            else if (comparator.type == GreaterThan) {
+                if (comparator_type == String) {
+                    if (i == 0) {
+                        if (comparator_type == StringLiteral) {
+                            fprintf(out_file, "\tif (strcmp(%s, strdup(%s)) > 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        } else if (comparator_type == StringVar) {
+                            fprintf(out_file, "\tif (strcmp(%s, %s) > 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        }
+                    } else {
+                        if (comparator_type == StringLiteral) {
+                            fprintf(out_file, "\telse if (strcmp(%s, strdup(%s)) > 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        } else if (comparator_type == StringVar) {
+                            fprintf(out_file, "\telse if (strcmp(%s, %s) > 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        }
+                    }
+                }
+                else if (comparator_type == Integer) {
+                    if (i == 0) {
+                        fprintf(out_file, "\tif (%s > %s) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                    } else {
+                        fprintf(out_file, "\telse if (%s > %s) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                    }
+                }
+            }
+            else if (comparator.type == LesserThan) {
+                if (comparator_type == String) {
+                    if (i == 0) {
+                        if (comparator_type == StringLiteral) {
+                            fprintf(out_file, "\tif (strcmp(%s, strdup(%s)) < 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        } else if (comparator_type == StringVar) {
+                            fprintf(out_file, "\tif (strcmp(%s, %s) < 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        }
+                    } else {
+                        if (comparator_type == StringLiteral) {
+                            fprintf(out_file, "\telse if (strcmp(%s, strdup(%s)) < 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        } else if (comparator_type == StringVar) {
+                            fprintf(out_file, "\telse if (strcmp(%s, %s) < 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        }
+                    }
+                }
+                else if (comparator_type == Integer) {
+                    if (i == 0) {
+                        fprintf(out_file, "\tif (%s < %s) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                    } else {
+                        fprintf(out_file, "\telse if (%s < %s) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                    }
+                }
+            }
+            else if (comparator.type == GreaterOrEqual) {
+                if (comparator_type == String) {
+                    if (i == 0) {
+                        if (comparator_type == StringLiteral) {
+                            fprintf(out_file, "\tif (strcmp(%s, strdup(%s)) >= 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        } else if (comparator_type == StringVar) {
+                            fprintf(out_file, "\tif (strcmp(%s, %s) >= 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        }
+                    } else {
+                        if (comparator_type == StringLiteral) {
+                            fprintf(out_file, "\telse if (strcmp(%s, strdup(%s)) >= 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        } else if (comparator_type == StringVar) {
+                            fprintf(out_file, "\telse if (strcmp(%s, %s) >= 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        }
+                    }
+                }
+                else if (comparator_type == Integer) {
+                    if (i == 0) {
+                        fprintf(out_file, "\tif (%s => %s) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                    } else {
+                        fprintf(out_file, "\telse if (%s => %s) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                    }
+                }
+            }
+            else if (comparator.type == LesserOrEqual) {
+                if (comparator_type == String) {
+                    if (i == 0) {
+                        if (comparator_type == StringLiteral) {
+                            fprintf(out_file, "\tif (strcmp(%s, strdup(%s)) <= 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        } else if (comparator_type == StringVar) {
+                            fprintf(out_file, "\tif (strcmp(%s, %s) <= 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        }
+                    } else {
+                        if (comparator_type == StringLiteral) {
+                            fprintf(out_file, "\telse if (strcmp(%s, strdup(%s)) <= 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        } else if (comparator_type == StringVar) {
+                            fprintf(out_file, "\telse if (strcmp(%s, %s) <= 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        }
+                    }
+                }
+                else if (comparator_type == Integer) {
+                    if (i == 0) {
+                        fprintf(out_file, "\tif (%s <= %s) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                    } else {
+                        fprintf(out_file, "\telse if (%s <= %s) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                    }
+                }
+            }
+        }
+    }
+    else if (strcmp(function.function_type, "while") == 0)
+    {
+        StrList mlist = str2list(function.function_value);
+        if (int_map_get(params, mlist.data[0]) == NULL)
+            return UNDEFINED_VARIABLE;
+
+        if (get_dtype(mlist.data[1]) != Map)
+            return UNKNOWN_FUNCTION;
+
+        StrList map_args = str2list(substr(mlist.data[1], 1, strlen(mlist.data[1])-2));
+        if (map_args.count != 2)
+            return UNKNOWN_FUNCTION;
+
+        if (!(get_dtype(map_args.data[0]) == List && get_dtype(map_args.data[1]) == List))
+            return UNKNOWN_FUNCTION;
+
+        StrList args1 = str2list(substr(map_args.data[0], 1, strlen(map_args.data[0])-2));
+        StrList args2 = str2list(substr(map_args.data[1], 1, strlen(map_args.data[1])-2));
+
+        if (args1.count != args2.count)
+            return UNKNOWN_FUNCTION;
+
+        Function temp_func;
+        Comparator comparator;
+        ComparatorDataType comparator_type;
+        for (int i=0; i<args1.count; i++) {
+            comparator = parse_comparator(args1.data[i]);
+            if (comparator.type == UnknownComparator)
+                return UNKNOWN_FUNCTION;
+
+            comparator_type = get_comparator_type(comparator.value, params);
+            if (comparator_type == UnknownComparatorDataType)
+                return UNKNOWN_FUNCTION;
+
+            temp_func = parse_function(args2.data[i], imports);
+            if (temp_func.function_type == "UnknownFunction")
+                return UNKNOWN_FUNCTION;
+
+            if (strcmp(temp_func.function_type, "die") == 0) {
+                char *inside = print_die(namespace, debug, identifier_type);
+                size_t total_len = strlen(inside) + strlen("{ }\n") + 1;
+
+                char *wrapped = malloc(total_len);
+                if (!wrapped)
+                    return C_COMPILE_ERROR;
+
+                if (i == 0) sprintf(wrapped, "{\n\t\t%s\n", inside);
+                else sprintf(wrapped, "{ %s }\n", inside);
+                free(inside);
+                temp_func.function_type = wrapped;
+            } else {
+                size_t len = strlen(temp_func.function_type) + strlen("();\n") + 1;
+                char *new_str = malloc(len);
+                if (new_str == NULL)
+                    return C_COMPILE_ERROR;
+                
+                if (i == 0) sprintf(new_str, "{\n\t\t%s();\n", temp_func.function_type);
+                else sprintf(new_str, "{ %s(); }\n", temp_func.function_type);
+                temp_func.function_type = new_str;
+            }
+
+            if (comparator.type == EqualTo) {
+                if (comparator_type == String) {
+                    if (i == 0) {
+                        if (comparator_type == StringLiteral) {
+                            fprintf(out_file, "\twhile (strcmp(%s, strdup(%s)) == 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        } else if (comparator_type == StringVar) {
+                            fprintf(out_file, "\twhile (strcmp(%s, %s) == 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        }
+                    } else {
+                        if (comparator_type == StringLiteral) {
+                            fprintf(out_file, "\t\tif (strcmp(%s, strdup(%s)) == 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        } else if (comparator_type == StringVar) {
+                            fprintf(out_file, "\t\tif (strcmp(%s, %s) == 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        }
+                    }
+                }
+                else if (comparator_type == Integer) {
+                    if (i == 0) {
+                        fprintf(out_file, "\twhile (%s == %s) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                    } else {
+                        fprintf(out_file, "\t\tif (%s == %s) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                    }
+                }
+            }
+            else if (comparator.type == GreaterThan) {
+                if (comparator_type == String) {
+                    if (i == 0) {
+                        if (comparator_type == StringLiteral) {
+                            fprintf(out_file, "\twhile (strcmp(%s, strdup(%s)) > 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        } else if (comparator_type == StringVar) {
+                            fprintf(out_file, "\twhile (strcmp(%s, %s) > 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        }
+                    } else {
+                        if (comparator_type == StringLiteral) {
+                            fprintf(out_file, "\t\tif (strcmp(%s, strdup(%s)) > 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        } else if (comparator_type == StringVar) {
+                            fprintf(out_file, "\t\tif (strcmp(%s, %s) > 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        }
+                    }
+                }
+                else if (comparator_type == Integer) {
+                    if (i == 0) {
+                        fprintf(out_file, "\twhile (%s > %s) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                    } else {
+                        fprintf(out_file, "\t\tif (%s > %s) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                    }
+                }
+            }
+            else if (comparator.type == LesserThan) {
+                if (comparator_type == String) {
+                    if (i == 0) {
+                        if (comparator_type == StringLiteral) {
+                            fprintf(out_file, "\twhile (strcmp(%s, strdup(%s)) < 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        } else if (comparator_type == StringVar) {
+                            fprintf(out_file, "\twhile (strcmp(%s, %s) < 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        }
+                    } else {
+                        if (comparator_type == StringLiteral) {
+                            fprintf(out_file, "\t\tif (strcmp(%s, strdup(%s)) < 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        } else if (comparator_type == StringVar) {
+                            fprintf(out_file, "\t\tif (strcmp(%s, %s) < 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        }
+                    }
+                }
+                else if (comparator_type == Integer) {
+                    if (i == 0) {
+                        fprintf(out_file, "\twhile (%s < %s) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                    } else {
+                        fprintf(out_file, "\t\tif (%s < %s) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                    }
+                }
+            }
+            else if (comparator.type == GreaterOrEqual) {
+                if (comparator_type == String) {
+                    if (i == 0) {
+                        if (comparator_type == StringLiteral) {
+                            fprintf(out_file, "\twhile (strcmp(%s, strdup(%s)) >= 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        } else if (comparator_type == StringVar) {
+                            fprintf(out_file, "\twhile (strcmp(%s, %s) >= 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        }
+                    } else {
+                        if (comparator_type == StringLiteral) {
+                            fprintf(out_file, "\t\tif (strcmp(%s, strdup(%s)) >= 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        } else if (comparator_type == StringVar) {
+                            fprintf(out_file, "\t\tif (strcmp(%s, %s) >= 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        }
+                    }
+                }
+                else if (comparator_type == Integer) {
+                    if (i == 0) {
+                        fprintf(out_file, "\twhile (%s => %s) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                    } else {
+                        fprintf(out_file, "\t\tif (%s => %s) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                    }
+                }
+            }
+            else if (comparator.type == LesserOrEqual) {
+                if (comparator_type == String) {
+                    if (i == 0) {
+                        if (comparator_type == StringLiteral) {
+                            fprintf(out_file, "\twhile (strcmp(%s, strdup(%s)) <= 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        } else if (comparator_type == StringVar) {
+                            fprintf(out_file, "\twhile (strcmp(%s, %s) <= 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        }
+                    } else {
+                        if (comparator_type == StringLiteral) {
+                            fprintf(out_file, "\t\tif (strcmp(%s, strdup(%s)) <= 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        } else if (comparator_type == StringVar) {
+                            fprintf(out_file, "\t\tif (strcmp(%s, %s) <= 0) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                        }
+                    }
+                }
+                else if (comparator_type == Integer) {
+                    if (i == 0) {
+                        fprintf(out_file, "\twhile (%s <= %s) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                    } else {
+                        fprintf(out_file, "\t\tif (%s <= %s) %s", mlist.data[0], comparator.value, temp_func.function_type);
+                    }
+                }
+            }
+        }
+        fputs("\t}\n", out_file);
     }
     else
     {
@@ -870,9 +1341,9 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                             
                         read_and_copy_file(full_path_c, &import_script);
                         summary.imports = append_str_list(summary.imports, func_namespace);
-
+                        
                         char *func_cwd = get_cwd(full_path);
-                        import_dict = str_map_set(import_dict, get_namespace(full_path, func_cwd), func_namespace);
+                        import_dict = str_map_set(import_dict, get_namespace(full_path, func_cwd), str_replace(func_namespace, '\\', '_'));
                     }
                     free(cwd);
                 }
@@ -1043,19 +1514,10 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
         }
     }
 
-    if (summary.debug == Y) {
-        if (summary.identifier_type == Flow) {
-            char *flow_e_temp = flow_e(namespace);
-            fputs(flow_e_temp, out_file);
-            free(flow_e_temp);
-        } else {
-            char *step_e_temp = step_e(namespace);
-            fputs(step_e_temp, out_file);
-            free(step_e_temp);
-        }
-    }
+    fputs("\t", out_file);
+    fputs(print_die(namespace, summary.debug, summary.identifier_type), out_file);
     free(namespace);
-    fputs("}", out_file);
+    fputs("\n}", out_file);
 
     cleanup:
         fclose(in_file);

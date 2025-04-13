@@ -37,6 +37,13 @@ To create a lightweight, utility-focused language that blends the **simplicity o
 - `warning()` – Inherited from PyLink's Debugger  
 - `error()` – Inherited from PyLink's Debugger
 - `die()` - Inherited from PyLink's System.Die
+- `depends()` - Works like a switch statement
+- `while()` - Works like a while statement with nested if's
+- `eq()` - Comparator for =
+- `gt()` - Comparator for >
+- `lt()` - Comparator for <
+- `gte()` - Comparator for >=
+- `lte()` - Comparator for <=
 
 ### 🗑️ Removed Functions
 - `@param()` - Set parameters for function
@@ -47,3 +54,19 @@ To create a lightweight, utility-focused language that blends the **simplicity o
 - `Decision()` - Inherited from PyLink's Decision
 - `RecursiveFlow()` - Inherited from PyLink's RecursiveFlow
 - `RecursiveStep()` - Inherited from PyLink's RecursiveStep
+
+---
+
+### 🔧 In-Line Operators
+- ["A", "B", "C"] - Creates a list of strings
+- [100, 200, 300] - Creates a list of integers
+- {["A", "B", "C"], [100, 200, 300]} - Creates a map of two lists
+
+---
+
+### 🔢 Supported Data Types
+- String
+- Integer
+- String List
+- Integer List
+- 2D Map
