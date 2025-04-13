@@ -1,5 +1,5 @@
 #step
 
-@get("A")
+@get(A)
 
 warning(A)

@@ -121,6 +121,8 @@ char *error_code2str(ErrorCode error_code) {
             return "UNDEFINED_STEP";
         case UNDEFINED_VARIABLE:
             return "UNDEFINED_VARIABLE";
+        case INVALID_VARIABLE:
+            return "INVALID_VARIABLE";
     }
     return strdup("");
 }
@@ -699,6 +701,26 @@ DataType get_dtype(char *str) {
     return UnknownDataType;
 }
 
+YesNo is_valid_varname(char *varname) {
+    int str_len = strlen(varname);
+    if (str_len == 0)
+        return N;
+
+    if (!(varname[0] == '_' || isalpha(varname[0])))
+        return N;
+
+    char last = varname[str_len-1];
+    if (!(last == '_' || isalpha(last) || isdigit(last)))
+        return N;
+
+    for (int i=0; i<str_len; i++) {
+        if (isspace(varname[i]))
+            return N;
+    }
+
+    return Y;
+}
+
 char *print_die(char *namespace, YesNo debug, IdentifierType identifier_type) {
     char *output = NULL;
     char *extra = NULL;
@@ -797,12 +819,15 @@ ErrorCode analyze_free_line_text(char *fline, FILE *out_file, YesNo debug, StrMa
     else if (strcmp(function.function_type, "set") == 0)
     {
         StrList mlist = str2list(function.function_value);
-        if (get_dtype(mlist.data[0]) != String)
+        if (mlist.count != 2)
             return UNKNOWN_FUNCTION;
+
+        if (is_valid_varname(trim(mlist.data[0])) == N)
+            return INVALID_VARIABLE;
 
         DataType dtype = get_dtype(mlist.data[1]);
         if (dtype == UnknownDataType)
-            return UNKNOWN_FUNCTION;
+            return UNKNOWN_DATATYPE;
     }
     else if (strcmp(function.function_type, "get") == 0)
     {
@@ -1348,21 +1373,13 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                     free(cwd);
                 }
                 else if (property_obj.property_type == Set && summary.identifier_type == Flow) {
+                    // TODO
                     StrList mlist = str2list(property_obj.property_value);
-                    if (mlist.count != 2) {
-                        syslogger(filename, fline_number, UNKNOWN_PROPERTY);
-                        goto cleanup;
-                    }
-
-                    if (get_dtype(mlist.data[0]) != String) {
-                        syslogger(filename, fline_number, UNKNOWN_PROPERTY);
-                        goto cleanup;
-                    }
 
                     DataType dtype = get_dtype(mlist.data[1]);
                     if (dtype == String)
                     {
-                        char *vname = extract_string(mlist.data[0]);
+                        char *vname = trim(mlist.data[0]);
                         if (int_map_get(*params, vname) != NULL) {
                             syslogger(filename, fline_number, PREDEFINED_VARIABLE);
                             goto cleanup;
@@ -1386,7 +1403,7 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                     }
                     else if (dtype == Integer)
                     {
-                        char *vname = extract_string(mlist.data[0]);
+                        char *vname = trim(mlist.data[0]);
                         if (int_map_get(*params, vname) != NULL) {
                             syslogger(filename, fline_number, PREDEFINED_VARIABLE);
                             goto cleanup;
@@ -1403,7 +1420,7 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                     }
                     else if (dtype == List)
                     {
-                        char *vname = extract_string(mlist.data[0]);
+                        char *vname = trim(mlist.data[0]);
                         if (int_map_get(*params, vname) != NULL) {
                             syslogger(filename, fline_number, PREDEFINED_VARIABLE);
                             goto cleanup;
@@ -1455,10 +1472,6 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                             free(vname);
                             goto cleanup;
                         }
-                    }
-                    else {
-                        syslogger(filename, fline_number, UNKNOWN_DATATYPE);
-                        goto cleanup;
                     }
                 }
                 else if (property_obj.property_type == Get && summary.identifier_type == Step) {

@@ -6,10 +6,10 @@ multi-line comment
 
 @debug(true)
 
-@set("A", "Hello")
-@set("AB", 123)
-@set("ABC", ["A", "B", "C"])
-@set("ABCD", [1, 2, 3])
+@set(A, "Hello")
+@set(AB, 123)
+@set(ABC, ["A", "B", "C"])
+@set(ABCD, [1, 2, 3])
 
 @import("./src/test2.link")
 
