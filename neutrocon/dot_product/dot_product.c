@@ -1,4 +1,4 @@
-double dot_product_vectors(const IntList *x, const IntList *y) {
+double dot_product_lists(const IntList *x, const IntList *y) {
     if (!x || !y || x->count != y->count) return 0.0;
     
     double result = 0.0;
@@ -8,7 +8,7 @@ double dot_product_vectors(const IntList *x, const IntList *y) {
     return result;
 }
 
-IntGrid dot_product_matrixes(const IntGrid *A, const IntGrid *B) {
+IntGrid dot_product_grids(const IntGrid *A, const IntGrid *B) {
     if (!A || !B || A->count == 0 || B->count == 0 || A->data[0].count != B->count) {
         return (IntGrid){0, NULL};
     }
@@ -37,7 +37,7 @@ IntGrid dot_product_matrixes(const IntGrid *A, const IntGrid *B) {
     return result;
 }
 
-IntList dot_product_matrix_vector(const IntGrid *A, const IntList *B) {
+IntList dot_product_grid_list(const IntGrid *A, const IntList *B) {
     if (!A || !B || A->data[0].count != B->count) {
         return (IntList){0, NULL};
     }
