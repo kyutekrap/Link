@@ -14,6 +14,15 @@ double *ABCD = malloc(3 * sizeof(double));
 ABCD[0] = 1.1;
 ABCD[1] = 2.2;
 ABCD[2] = 3.3;
+void **Map1 = malloc(2 * sizeof(void*));
+Map1[0] = ABC;
+Map1[1] = ABC;
+void **Map2 = malloc(2 * sizeof(void*));
+Map2[0] = ABC;
+Map2[1] = malloc(3 * sizeof(int));
+Map2[1][0] = 1;
+Map2[1][1] = 2;
+Map2[1][2] = 3;
 
 int *Data1 = malloc(9 * sizeof(int));
 Data1[0] = 1;

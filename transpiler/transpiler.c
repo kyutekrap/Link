@@ -48,6 +48,9 @@ typedef enum {
     IntegerList,
     DoubleList,
     Map,
+    StringMap,
+    IntegerMap,
+    DoubleMap,
     UnknownDataType,
     None
 } DataType;
@@ -127,6 +130,8 @@ char *error_code2str(ErrorCode error_code) {
             return "UNDEFINED_VARIABLE";
         case INVALID_VARIABLE:
             return "INVALID_VARIABLE";
+        case ILLEGAL_DATATYPE:
+            return "ILLEGAL_DATATYPE";
     }
     return strdup("");
 }
@@ -176,6 +181,42 @@ IntList char_index(char *str, char target) {
         }
     }
 
+    return mlist;
+}
+
+IntList char_index_ignore(char *str, char target) {
+    IntList mlist = {0, NULL};
+    int inside_brackets = 0;
+
+    for (int i = 0; str[i]; i++) {
+        if (str[i] == '[') {
+            inside_brackets++;
+        } else if (str[i] == ']') {
+            if (inside_brackets > 0) inside_brackets--;
+        }
+
+        if (str[i] == target && inside_brackets == 0) {
+            int **temp = realloc(mlist.data, (mlist.count + 1) * sizeof(int *));
+            if (!temp) goto cleanup;
+
+            mlist.data = temp;
+            mlist.data[mlist.count] = malloc(sizeof(int));
+            if (!mlist.data[mlist.count]) goto cleanup;
+
+            *(mlist.data[mlist.count]) = i;
+            mlist.count++;
+        }
+    }
+
+    return mlist;
+
+cleanup:
+    for (int j = 0; j < mlist.count; j++) {
+        free(mlist.data[j]);
+    }
+    free(mlist.data);
+    mlist.data = NULL;
+    mlist.count = 0;
     return mlist;
 }
 
@@ -308,6 +349,27 @@ ComparatorDataType get_comparator_type(char *str, IntMap params) {
     }
 
     return UnknownComparatorDataType;
+}
+
+StrList parse_map(char *map) {
+    StrList res = {0, NULL};
+
+    IntList mlist = char_index_ignore(map, ',');
+    if (mlist.count != 1)
+        return res;
+
+    char *res1 = trim(substr(map, 1, *mlist.data[0] - 1));
+    char *res2 = trim(substr(map, *mlist.data[0] + 1, strlen(map) - *mlist.data[0] - 2));
+
+    if (is_empty(res1) == Y || is_empty(res2) == Y)
+        return res;
+
+    res.count = 2;
+    res.data = malloc(2 * sizeof(char*));
+    res.data[0] = res1;
+    res.data[1] = res2;
+
+    return res;
 }
 
 // ===== UTILS (END)
@@ -1370,54 +1432,75 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                 }
                 else if (property_obj.property_type == Import) {
                     property_obj.property_value = extract_string(property_obj.property_value);
-                    char *cwd = get_cwd(filename);
-                    char full_path[PATH_MAX];
-                    get_full_path(cwd, property_obj.property_value, full_path);
-                    if (full_path == NULL) {
-                        syslogger(filename, fline_number, FILE_NOT_FOUND);
-                        goto cleanup;
-                    } else {
-                        char *func_namespace = get_namespace(full_path, origin);
-                        if (is_valid_filename(func_namespace) == N) {
-                            syslogger(filename, fline_number, INVALID_FILENAME);
+                    if (is_link_file(property_obj.property_value) == Y)
+                    {
+                        char *cwd = get_cwd(filename);
+                        char full_path[PATH_MAX];
+                        get_full_path(cwd, property_obj.property_value, full_path);
+                        if (full_path == NULL) {
+                            syslogger(filename, fline_number, FILE_NOT_FOUND);
                             goto cleanup;
-                        }
-
-                        if (in_str_list(summary.imports, func_namespace) == Y) {
-                            free(cwd);
-                            free(func_namespace);
-                            break;
-                        }
-
-                        char *full_path_c = get_target_name(full_path);
-                        if (access(full_path_c, F_OK) != 0) {
-                            TranspilerSummary func_summary = transpiler_main(full_path, origin, summary.debug, params);
-                            if (summary.identifier_type == Flow && func_summary.identifier_type == Flow) {
-                                free(cwd);
-                                free(func_namespace);
-                                syslogger(filename, fline_number, INVALID_IMPORT);
+                        } else {
+                            char *func_namespace = get_namespace(full_path, origin);
+                            if (is_valid_filename(func_namespace) == N) {
+                                syslogger(filename, fline_number, INVALID_FILENAME);
                                 goto cleanup;
                             }
-                            else if (summary.identifier_type == Step && func_summary.identifier_type != Step) {
-                                free(cwd);
-                                free(func_namespace);
-                                syslogger(filename, fline_number, INVALID_IMPORT);
-                                goto cleanup;
-                            }
-                            if (in_str_list(func_summary.imports, func_namespace) == Y) {
+    
+                            if (in_str_list(summary.imports, func_namespace) == Y) {
                                 free(cwd);
                                 free(func_namespace);
                                 break;
                             }
-                        }
+    
+                            char *full_path_c = get_target_name(full_path);
+                            if (access(full_path_c, F_OK) != 0) {
+                                TranspilerSummary func_summary = transpiler_main(full_path, origin, summary.debug, params);
+                                if (summary.identifier_type == Flow && func_summary.identifier_type == Flow) {
+                                    free(cwd);
+                                    free(func_namespace);
+                                    syslogger(filename, fline_number, INVALID_IMPORT);
+                                    goto cleanup;
+                                }
+                                else if (summary.identifier_type == Step && func_summary.identifier_type != Step) {
+                                    free(cwd);
+                                    free(func_namespace);
+                                    syslogger(filename, fline_number, INVALID_IMPORT);
+                                    goto cleanup;
+                                }
+                                if (in_str_list(func_summary.imports, func_namespace) == Y) {
+                                    free(cwd);
+                                    free(func_namespace);
+                                    break;
+                                }
+                            }
+                                
+                            read_and_copy_file(full_path_c, &import_script);
+                            summary.imports = append_str_list(summary.imports, func_namespace);
                             
-                        read_and_copy_file(full_path_c, &import_script);
-                        summary.imports = append_str_list(summary.imports, func_namespace);
-                        
-                        char *func_cwd = get_cwd(full_path);
-                        import_dict = str_map_set(import_dict, get_namespace(full_path, func_cwd), str_replace(func_namespace, '\\', '_'));
+                            char *func_cwd = get_cwd(full_path);
+                            import_dict = str_map_set(import_dict, get_namespace(full_path, func_cwd), str_replace(func_namespace, '\\', '_'));
+                        }
+                        free(cwd);
                     }
-                    free(cwd);
+                    else
+                    {
+                        char *cwd = get_cwd(filename);
+                        char full_path[PATH_MAX];
+                        property_obj.property_value = join_str(property_obj.property_value, "\\main.link");
+                        get_full_path(cwd, property_obj.property_value, full_path);
+                        if (full_path == NULL) {
+                            syslogger(filename, fline_number, FILE_NOT_FOUND);
+                            goto cleanup;
+                        }
+
+                        if (access(full_path, F_OK) != 0) {
+                            syslogger(filename, fline_number, FILE_NOT_FOUND);
+                            goto cleanup;
+                        }
+
+                        free(cwd);
+                    }
                 }
                 else if (property_obj.property_type == Global) {
                     if (summary.identifier_type == Step) {
@@ -1560,6 +1643,142 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                             free(vname);
                             goto cleanup;
                         }
+                    }
+                    else if (dtype == Map)
+                    {
+                        char *vname = trim(mlist.data[0]);
+                        if (int_map_get(*params, vname) != NULL) {
+                            syslogger(filename, fline_number, PREDEFINED_VARIABLE);
+                            goto cleanup;
+                        }
+
+                        StrList map_args = parse_map(mlist.data[1]);
+                        if (map_args.count == 0) {
+                            syslogger(filename, fline_number, UNKNOWN_DATATYPE);
+                            goto cleanup;
+                        }
+
+                        int line_len = snprintf(NULL, 0, "void **%s = malloc(2 * sizeof(void*));\n", vname);
+                        char *buffer = malloc(line_len + 1);
+                        sprintf(buffer, "void **%s = malloc(2 * sizeof(void*));\n", vname);
+                        global_script = join_str(global_script, buffer);
+
+                        DataType dtype = get_dtype(map_args.data[0]);
+                        if (dtype == UnknownDataType) {
+                            int *_dtype = int_map_get(*params, map_args.data[0]);
+                            if (_dtype == NULL || *_dtype != StringList) {
+                                syslogger(filename, fline_number, ILLEGAL_DATATYPE);
+                                goto cleanup;
+                            }
+                            line_len = snprintf(NULL, 0, "%s[0] = %s;\n", vname, map_args.data[0]);
+                            buffer = realloc(buffer, line_len + 1);
+                            sprintf(buffer, "%s[0] = %s;\n", vname, map_args.data[0]);
+                            global_script = join_str(global_script, buffer);
+                        } else if (dtype == List) {
+                            DataType ltype = get_ltype(map_args.data[0]);
+                            if (ltype != String) {
+                                syslogger(filename, fline_number, ILLEGAL_DATATYPE);
+                                goto cleanup;
+                            }
+                            StrList elements1 = str2list(substr(map_args.data[1], 1, strlen(map_args.data[1]) - 2));
+                            if (dtype == String) {
+                                line_len = snprintf(NULL, 0, "%s[1] = malloc(%i * sizeof(char*));\n", vname, elements1.count);
+                                buffer = realloc(buffer, line_len + 1);
+                                sprintf(buffer, "%s[1] = malloc(%i * sizeof(char*));\n", vname, elements1.count);
+                                global_script = join_str(global_script, buffer);
+                                for (int i=0; i<elements1.count; i++) {
+                                    line_len = snprintf(NULL, 0, "%s[1][%i] = strdup(\"%s\");\n", vname, i, elements1.data[i]);
+                                    buffer = realloc(buffer, line_len + 1);
+                                    sprintf(buffer, "%s[1][%i] = strdup(\"%s\");\n", vname, i, elements1.data[i]);
+                                    global_script = join_str(global_script, buffer);
+                                }
+                            } else if (dtype == Integer) {
+                                line_len = snprintf(NULL, 0, "%s[1] = malloc(%i * sizeof(int));\n", vname, elements1.count);
+                                buffer = realloc(buffer, line_len + 1);
+                                sprintf(buffer, "%s[1] = malloc(%i * sizeof(int));\n", vname, elements1.count);
+                                global_script = join_str(global_script, buffer);
+                                for (int i=0; i<elements1.count; i++) {
+                                    line_len = snprintf(NULL, 0, "%s[1][%i] = %s;\n", vname, i, elements1.data[i]);
+                                    buffer = realloc(buffer, line_len + 1);
+                                    sprintf(buffer, "%s[1][%i] = %s;\n", vname, i, elements1.data[i]);
+                                    global_script = join_str(global_script, buffer);
+                                }
+                            } else if (dtype == Double) {
+                                line_len = snprintf(NULL, 0, "%s[1] = malloc(%i * sizeof(double));\n", vname, elements1.count);
+                                buffer = realloc(buffer, line_len + 1);
+                                sprintf(buffer, "%s[1] = malloc(%i * sizeof(double));\n", vname, elements1.count);
+                                global_script = join_str(global_script, buffer);
+                                for (int i=0; i<elements1.count; i++) {
+                                    line_len = snprintf(NULL, 0, "%s[1][%i] = %s;\n", vname, i, elements1.data[i]);
+                                    buffer = realloc(buffer, line_len + 1);
+                                    sprintf(buffer, "%s[1][%i] = %s;\n", vname, i, elements1.data[i]);
+                                    global_script = join_str(global_script, buffer);
+                                }
+                            }
+                        } else {
+                            syslogger(filename, fline_number, ILLEGAL_DATATYPE);
+                            goto cleanup;
+                        }
+
+                        dtype = get_dtype(map_args.data[1]);
+                        if (dtype == UnknownDataType) {
+                            int *_dtype = int_map_get(*params, map_args.data[1]);
+                            if (_dtype == NULL || (*_dtype != StringList && *_dtype != IntegerList && *_dtype != DoubleList)) {
+                                syslogger(filename, fline_number, ILLEGAL_DATATYPE);
+                                goto cleanup;
+                            }
+                            line_len = snprintf(NULL, 0, "%s[1] = %s;\n", vname, map_args.data[1]);
+                            buffer = realloc(buffer, line_len + 1);
+                            sprintf(buffer, "%s[1] = %s;\n", vname, map_args.data[1]);
+                            global_script = join_str(global_script, buffer);
+                        } else if (dtype == List) {
+                            dtype = get_ltype(map_args.data[1]);
+                            if (dtype == UnknownDataType) {
+                                syslogger(filename, fline_number, ILLEGAL_DATATYPE);
+                                goto cleanup;
+                            }
+                            StrList elements2 = str2list(substr(map_args.data[1], 1, strlen(map_args.data[1]) - 2));
+                            if (dtype == String) {
+                                line_len = snprintf(NULL, 0, "%s[1] = malloc(%i * sizeof(char*));\n", vname, elements2.count);
+                                buffer = realloc(buffer, line_len + 1);
+                                sprintf(buffer, "%s[1] = malloc(%i * sizeof(char*));\n", vname, elements2.count);
+                                global_script = join_str(global_script, buffer);
+                                for (int i=0; i<elements2.count; i++) {
+                                    line_len = snprintf(NULL, 0, "%s[1][%i] = strdup(\"%s\");\n", vname, i, elements2.data[i]);
+                                    buffer = realloc(buffer, line_len + 1);
+                                    sprintf(buffer, "%s[1][%i] = strdup(\"%s\");\n", vname, i, elements2.data[i]);
+                                    global_script = join_str(global_script, buffer);
+                                }
+                            } else if (dtype == Integer) {
+                                line_len = snprintf(NULL, 0, "%s[1] = malloc(%i * sizeof(int));\n", vname, elements2.count);
+                                buffer = realloc(buffer, line_len + 1);
+                                sprintf(buffer, "%s[1] = malloc(%i * sizeof(int));\n", vname, elements2.count);
+                                global_script = join_str(global_script, buffer);
+                                for (int i=0; i<elements2.count; i++) {
+                                    line_len = snprintf(NULL, 0, "%s[1][%i] = %s;\n", vname, i, elements2.data[i]);
+                                    buffer = realloc(buffer, line_len + 1);
+                                    sprintf(buffer, "%s[1][%i] = %s;\n", vname, i, elements2.data[i]);
+                                    global_script = join_str(global_script, buffer);
+                                }
+                            } else if (dtype == Double) {
+                                line_len = snprintf(NULL, 0, "%s[1] = malloc(%i * sizeof(double));\n", vname, elements2.count);
+                                buffer = realloc(buffer, line_len + 1);
+                                sprintf(buffer, "%s[1] = malloc(%i * sizeof(double));\n", vname, elements2.count);
+                                global_script = join_str(global_script, buffer);
+                                for (int i=0; i<elements2.count; i++) {
+                                    line_len = snprintf(NULL, 0, "%s[1][%i] = %s;\n", vname, i, elements2.data[i]);
+                                    buffer = realloc(buffer, line_len + 1);
+                                    sprintf(buffer, "%s[1][%i] = %s;\n", vname, i, elements2.data[i]);
+                                    global_script = join_str(global_script, buffer);
+                                }
+                            }
+                        } else {
+                            syslogger(filename, fline_number, ILLEGAL_DATATYPE);
+                            goto cleanup;
+                        }
+
+                        *params = int_map_set(*params, vname, dtype);
+                        free(buffer);
                     }
                 }
                 else if (property_obj.property_type == UnknownProperty) {
