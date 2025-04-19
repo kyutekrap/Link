@@ -5,15 +5,15 @@
 
 char *A = malloc(6);
 strcpy(A, "Hello");
-int AB = 123;
+int AB = -123;
 char **ABC = malloc(3 * sizeof(char*));
 ABC[0] = strdup("A");
 ABC[1] = strdup("B");
 ABC[2] = strdup("C");
-int *ABCD = malloc(3 * sizeof(int));
-ABCD[0] = 1;
-ABCD[1] = 2;
-ABCD[2] = 3;
+double *ABCD = malloc(3 * sizeof(double));
+ABCD[0] = 1.1;
+ABCD[1] = 2.2;
+ABCD[2] = 3.3;
 
 int *Data1 = malloc(9 * sizeof(int));
 Data1[0] = 1;

@@ -42,9 +42,11 @@ typedef enum {
 typedef enum {
     String,
     Integer,
+    Double,
     List,
     StringList,
     IntegerList,
+    DoubleList,
     Map,
     UnknownDataType,
     None
@@ -62,8 +64,10 @@ typedef enum {
 typedef enum {
     StringLiteral,
     IntegerStatic,
+    DoubleStatic,
     StringVar,
     IntegerVar,
+    DoubleVar,
     UnknownComparatorDataType
 } ComparatorDataType;
 
@@ -188,13 +192,35 @@ char *extract_string(char *fline) {
     return substr(fline, 1, strlen(fline)-2);
 }
 
-YesNo is_number(char *var) {
+YesNo is_integer(char *var) {
     if (var == NULL || *var == '\0')
         return N;
 
     for (int i = 0; var[i] != '\0'; i++) {
-        if (!isdigit((unsigned char)var[i]))
-            return N;
+        if (!isdigit((unsigned char)var[i])) {
+            if (!(var[i] == '-' && i == 0))
+                return N;
+        }   
+    }
+
+    return Y;
+}
+
+YesNo is_double(char *var) {
+    if (var == NULL || *var == '\0')
+        return N;
+
+    int has_point = 0;
+    for (int i=0; var[i] != '\0'; i++) {
+        if (var[i] == '.') {
+            if (has_point == 0)
+                has_point = 1;
+            else
+                return N;
+        } else if (!isdigit((unsigned char)var[i])) {
+            if (!(var[i] == '-' && i == 0))
+                return N;
+        }
     }
 
     return Y;
@@ -212,19 +238,23 @@ DataType get_ltype(char *str) {
         if (current_size >= 2 && current[0] == '"' && current[current_size-1] == '"') {
             if (ltype = UnknownDataType) {
                 ltype = String;
-            } else if (ltype = Integer) {
+            } else if (ltype != String) {
                 ltype = UnknownDataType;
                 break;
             }
-        } else if (is_number(current) == Y) {
+        } else if (is_integer(current) == Y) {
             if (ltype = UnknownDataType) {
                 ltype = Integer;
-            } else if (ltype = String) {
+            } else if (ltype != Integer) {
                 ltype = UnknownDataType;
                 break;
             }
-        } else {
-            break;
+        } else if (is_double(current) == Y) {
+            if (ltype = UnknownDataType) {
+                ltype = Double;
+            } else if (ltype != Double) {
+                ltype = UnknownDataType;
+            }
         }
     }
 
@@ -259,8 +289,11 @@ ComparatorDataType get_comparator_type(char *str, IntMap params) {
     if (str_len >= 2 && str[0] == '"' && str[str_len-1] == '"') {
         return StringLiteral;
     }
-    else if (is_number(str) == Y) {
+    else if (is_integer(str) == Y) {
         return IntegerStatic;
+    }
+    else if (is_double(str) == Y) {
+        return DoubleStatic;
     }
     else {
         int *temp_type = int_map_get(params, str);
@@ -270,6 +303,8 @@ ComparatorDataType get_comparator_type(char *str, IntMap params) {
             return StringVar;
         else if (*temp_type == Integer)
             return IntegerVar;
+        else if (*temp_type == Double)
+            return DoubleVar;
     }
 
     return UnknownComparatorDataType;
@@ -681,9 +716,13 @@ DataType get_dtype(char *str) {
     {
         return None;
     }
-    else if (is_number(str) == Y)
+    else if (is_integer(str) == Y)
     {
         return Integer;
+    }
+    else if (is_double(str) == Y)
+    {
+        return Double;
     }
     else if (str_len >= 2 && str[0] == '"' && str[str_len-1] == '"')
     {
@@ -904,7 +943,7 @@ ErrorCode analyze_free_line_text(char *fline, FILE *out_file, YesNo debug, StrMa
                         }
                     }
                 }
-                else if (comparator_type == Integer) {
+                else if (comparator_type == Integer || comparator_type == Double) {
                     if (i == 0) {
                         fprintf(out_file, "\tif (%s == %s) %s", mlist.data[0], comparator.value, temp_func.function_type);
                     } else {
@@ -928,7 +967,7 @@ ErrorCode analyze_free_line_text(char *fline, FILE *out_file, YesNo debug, StrMa
                         }
                     }
                 }
-                else if (comparator_type == Integer) {
+                else if (comparator_type == Integer || comparator_type == Double) {
                     if (i == 0) {
                         fprintf(out_file, "\tif (%s > %s) %s", mlist.data[0], comparator.value, temp_func.function_type);
                     } else {
@@ -952,7 +991,7 @@ ErrorCode analyze_free_line_text(char *fline, FILE *out_file, YesNo debug, StrMa
                         }
                     }
                 }
-                else if (comparator_type == Integer) {
+                else if (comparator_type == Integer || comparator_type == Double) {
                     if (i == 0) {
                         fprintf(out_file, "\tif (%s < %s) %s", mlist.data[0], comparator.value, temp_func.function_type);
                     } else {
@@ -976,7 +1015,7 @@ ErrorCode analyze_free_line_text(char *fline, FILE *out_file, YesNo debug, StrMa
                         }
                     }
                 }
-                else if (comparator_type == Integer) {
+                else if (comparator_type == Integer || comparator_type == Double) {
                     if (i == 0) {
                         fprintf(out_file, "\tif (%s => %s) %s", mlist.data[0], comparator.value, temp_func.function_type);
                     } else {
@@ -1000,7 +1039,7 @@ ErrorCode analyze_free_line_text(char *fline, FILE *out_file, YesNo debug, StrMa
                         }
                     }
                 }
-                else if (comparator_type == Integer) {
+                else if (comparator_type == Integer || comparator_type == Double) {
                     if (i == 0) {
                         fprintf(out_file, "\tif (%s <= %s) %s", mlist.data[0], comparator.value, temp_func.function_type);
                     } else {
@@ -1087,7 +1126,7 @@ ErrorCode analyze_free_line_text(char *fline, FILE *out_file, YesNo debug, StrMa
                         }
                     }
                 }
-                else if (comparator_type == Integer) {
+                else if (comparator_type == Integer || comparator_type == Double) {
                     if (i == 0) {
                         fprintf(out_file, "\twhile (%s == %s) %s", mlist.data[0], comparator.value, temp_func.function_type);
                     } else {
@@ -1111,7 +1150,7 @@ ErrorCode analyze_free_line_text(char *fline, FILE *out_file, YesNo debug, StrMa
                         }
                     }
                 }
-                else if (comparator_type == Integer) {
+                else if (comparator_type == Integer || comparator_type == Double) {
                     if (i == 0) {
                         fprintf(out_file, "\twhile (%s > %s) %s", mlist.data[0], comparator.value, temp_func.function_type);
                     } else {
@@ -1135,7 +1174,7 @@ ErrorCode analyze_free_line_text(char *fline, FILE *out_file, YesNo debug, StrMa
                         }
                     }
                 }
-                else if (comparator_type == Integer) {
+                else if (comparator_type == Integer || comparator_type == Double) {
                     if (i == 0) {
                         fprintf(out_file, "\twhile (%s < %s) %s", mlist.data[0], comparator.value, temp_func.function_type);
                     } else {
@@ -1159,7 +1198,7 @@ ErrorCode analyze_free_line_text(char *fline, FILE *out_file, YesNo debug, StrMa
                         }
                     }
                 }
-                else if (comparator_type == Integer) {
+                else if (comparator_type == Integer || comparator_type == Double) {
                     if (i == 0) {
                         fprintf(out_file, "\twhile (%s => %s) %s", mlist.data[0], comparator.value, temp_func.function_type);
                     } else {
@@ -1183,7 +1222,7 @@ ErrorCode analyze_free_line_text(char *fline, FILE *out_file, YesNo debug, StrMa
                         }
                     }
                 }
-                else if (comparator_type == Integer) {
+                else if (comparator_type == Integer || comparator_type == Double) {
                     if (i == 0) {
                         fprintf(out_file, "\twhile (%s <= %s) %s", mlist.data[0], comparator.value, temp_func.function_type);
                     } else {
@@ -1430,6 +1469,23 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                         *params = int_map_set(*params, vname, Integer);
                         free(vname);
                     }
+                    else if (dtype == Double)
+                    {
+                        char *vname = trim(mlist.data[0]);
+                        if (int_map_get(*params, vname) != NULL) {
+                            syslogger(filename, fline_number, PREDEFINED_VARIABLE);
+                            goto cleanup;
+                        }
+
+                        int line1_len = snprintf(NULL, 0, "double %s = %s;\n", vname, mlist.data[1]);
+                        char *buffer1 = malloc(line1_len + 1);
+                        sprintf(buffer1, "double %s = %s;\n", vname, mlist.data[1]);
+                        global_script = join_str(global_script, buffer1);
+                        free(buffer1);
+
+                        *params = int_map_set(*params, vname, Integer);
+                        free(vname);
+                    }
                     else if (dtype == List)
                     {
                         char *vname = trim(mlist.data[0]);
@@ -1465,6 +1521,26 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                             int line1_len = snprintf(NULL, 0, "int *%s = malloc(%i * sizeof(int));\n", vname, elements.count);
                             char *buffer1 = malloc(line1_len + 1);
                             sprintf(buffer1, "int *%s = malloc(%i * sizeof(int));\n", vname, elements.count);
+                            global_script = join_str(global_script, buffer1);
+                            free(buffer1);
+
+                            for (int i=0; i<elements.count; i++) {
+                                int line2_len = snprintf(NULL, 0, "%s[%i] = %s;\n", vname, i, elements.data[i]);
+                                char *buffer2 = malloc(line1_len + 1);
+                                sprintf(buffer2, "%s[%i] = %s;\n", vname, i, elements.data[i]);
+                                global_script = join_str(global_script, buffer2);
+                                free(buffer2);
+                            }
+
+                            *params = int_map_set(*params, vname, IntegerList);
+                            free(vname);
+                        }
+                        else if (ltype == Double) {
+                            StrList elements = str2list(substr(mlist.data[1], 1, strlen(mlist.data[1])-2));
+
+                            int line1_len = snprintf(NULL, 0, "double *%s = malloc(%i * sizeof(double));\n", vname, elements.count);
+                            char *buffer1 = malloc(line1_len + 1);
+                            sprintf(buffer1, "double *%s = malloc(%i * sizeof(double));\n", vname, elements.count);
                             global_script = join_str(global_script, buffer1);
                             free(buffer1);
 

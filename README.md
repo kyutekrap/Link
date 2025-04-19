@@ -62,6 +62,7 @@ To create a lightweight, utility-focused language that blends the **simplicity o
 ### 🔧 In-Line Operators
 - ["A", "B", "C"] - Creates a list of strings
 - [100, 200, 300] - Creates a list of integers
+- [100.0, 200.0, 300.0] - Creates a list of doubles
 - {["A", "B", "C"], [100, 200, 300]} - Creates a map of two lists
 
 ---
@@ -69,6 +70,7 @@ To create a lightweight, utility-focused language that blends the **simplicity o
 ### 🔢 Supported Data Types
 - String
 - Integer
+- Double
 - String List
 - Integer List
-- 2D Map
+- Double List

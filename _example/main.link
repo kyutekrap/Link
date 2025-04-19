@@ -7,9 +7,9 @@ multi-line comment
 @debug(true)
 
 @global(A, "Hello")
-@global(AB, 123)
+@global(AB, -123)
 @global(ABC, ["A", "B", "C"])
-@global(ABCD, [1, 2, 3])
+@global(ABCD, [1.1, 2.2, 3.3])
 
 @import("./src/test.link")
 @import("./src/test2.link")

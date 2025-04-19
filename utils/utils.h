@@ -18,6 +18,11 @@ typedef struct {
 
 typedef struct {
     int count;
+    double **data;
+} DblList;
+
+typedef struct {
+    int count;
     char **data;
 } StrList;
 
@@ -32,6 +37,12 @@ typedef struct {
     StrList keys;
     IntList values;
 } IntMap;
+
+typedef struct {
+    int count;
+    StrList keys;
+    DblList values;
+} DblMap;
 
 void *trim(char *str);
 char *substr(char *str, int pos, int cnt);
