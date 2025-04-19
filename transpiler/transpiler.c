@@ -28,12 +28,12 @@ typedef enum {
 typedef enum {
     Flow,
     Step,
+    Data,
     UnknownIdentifier
 } IdentifierType;
 
 typedef enum {
-    Set,
-    Get,
+    Global,
     Debug,
     Import,
     UnknownProperty
@@ -117,8 +117,8 @@ char *error_code2str(ErrorCode error_code) {
             return "INVALID_FILENAME";
         case PREDEFINED_VARIABLE:
             return "PREDEFINED_VARIABLE";
-        case UNDEFINED_STEP:
-            return "UNDEFINED_STEP";
+        case INVALID_IMPORT:
+            return "INVALID_IMPORT";
         case UNDEFINED_VARIABLE:
             return "UNDEFINED_VARIABLE";
         case INVALID_VARIABLE:
@@ -365,6 +365,8 @@ IdentifierType find_identifier(char *fline) {
         return Flow;
     else if (strcmp(fline, "#step") == 0)
         return Step;
+    else if (strcmp(fline, "#data") == 0)
+        return Data;
     else
         return UnknownIdentifier;
 }
@@ -395,10 +397,8 @@ Property parse_property(char *fline) {
         property_obj.property_type = Debug;
     else if (strcmp(property_type, "import") == 0)
         property_obj.property_type = Import;
-    else if (strcmp(property_type, "set") == 0)
-        property_obj.property_type = Set;
-    else if (strcmp(property_type, "get") == 0)
-        property_obj.property_type = Get;
+    else if (strcmp(property_type, "global") == 0)
+        property_obj.property_type = Global;
     else {
         free(property_type);
         clear_int_list(sValue);
@@ -816,7 +816,7 @@ ErrorCode analyze_free_line_text(char *fline, FILE *out_file, YesNo debug, StrMa
     {
         fputs(print_die(namespace, debug, identifier_type), out_file);
     }
-    else if (strcmp(function.function_type, "set") == 0)
+    else if (strcmp(function.function_type, "global") == 0)
     {
         StrList mlist = str2list(function.function_value);
         if (mlist.count != 2)
@@ -828,12 +828,6 @@ ErrorCode analyze_free_line_text(char *fline, FILE *out_file, YesNo debug, StrMa
         DataType dtype = get_dtype(mlist.data[1]);
         if (dtype == UnknownDataType)
             return UNKNOWN_DATATYPE;
-    }
-    else if (strcmp(function.function_type, "get") == 0)
-    {
-        StrList mlist = str2list(function.function_value);
-        if (get_dtype(mlist.data[0]) != String)
-            return UNKNOWN_FUNCTION;
     }
     else if (strcmp(function.function_type, "depends") == 0)
     {
@@ -1288,6 +1282,10 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
             
             case PropertyText:
                 if (is_property(fline) == N) {
+                    if (summary.identifier_type == Data) {
+                        syslogger(filename, fline_number, UNKNOWN_PROPERTY);
+                        goto cleanup;
+                    }
                     if (summary.identifier_type == Flow)
                         fputs(HEADER, out_file);
                     if (summary.debug == Y && summary.identifier_type == Flow)
@@ -1324,6 +1322,10 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                     break;
                 }
                 Property property_obj = parse_property(fline);
+                if (summary.identifier_type == Data && property_obj.property_type != Global) {
+                    syslogger(filename, fline_number, UNKNOWN_PROPERTY);
+                    goto cleanup;
+                }
                 if (property_obj.property_type == Debug) {
                     summary.debug = (strcmp(property_obj.property_value, "true") == 0) ? Y : N;
                 }
@@ -1351,10 +1353,16 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                         char *full_path_c = get_target_name(full_path);
                         if (access(full_path_c, F_OK) != 0) {
                             TranspilerSummary func_summary = transpiler_main(full_path, origin, summary.debug, params);
-                            if (func_summary.identifier_type != Step) {
+                            if (summary.identifier_type == Flow && func_summary.identifier_type == Flow) {
                                 free(cwd);
                                 free(func_namespace);
-                                syslogger(filename, fline_number, UNDEFINED_STEP);
+                                syslogger(filename, fline_number, INVALID_IMPORT);
+                                goto cleanup;
+                            }
+                            else if (summary.identifier_type == Step && func_summary.identifier_type != Step) {
+                                free(cwd);
+                                free(func_namespace);
+                                syslogger(filename, fline_number, INVALID_IMPORT);
                                 goto cleanup;
                             }
                             if (in_str_list(func_summary.imports, func_namespace) == Y) {
@@ -1372,8 +1380,12 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                     }
                     free(cwd);
                 }
-                else if (property_obj.property_type == Set && summary.identifier_type == Flow) {
-                    // TODO
+                else if (property_obj.property_type == Global) {
+                    if (summary.identifier_type == Step) {
+                        syslogger(filename, fline_number, UNKNOWN_PROPERTY);
+                        goto cleanup;
+                    }
+
                     StrList mlist = str2list(property_obj.property_value);
 
                     DataType dtype = get_dtype(mlist.data[1]);
@@ -1474,13 +1486,6 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                         }
                     }
                 }
-                else if (property_obj.property_type == Get && summary.identifier_type == Step) {
-                    StrList mlist = str2list(property_obj.property_value);
-                    if (mlist.count != 1) {
-                        syslogger(filename, fline_number, UNKNOWN_PROPERTY);
-                        goto cleanup;
-                    }
-                }
                 else if (property_obj.property_type == UnknownProperty) {
                     syslogger(filename, fline_number, UNKNOWN_PROPERTY);
                     goto cleanup;
@@ -1507,30 +1512,34 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
             free(global_script);
             fputs("\n", out_file);
         }
-        if (import_script != NULL) {
-            fwrite(import_script, 1, strlen(import_script), out_file);
-            free(import_script);
-        }
-        fprintf(out_file, "void %s() {\n", summary.name);
-        if (summary.debug == Y) {
-            if (summary.identifier_type == Flow) {
-                char *flow_s_temp = flow_s();
-                fputs(flow_s_temp, out_file);
-                free(flow_s_temp);
-            } else {
-                char *step_s_temp = step_s();
-                fputs(step_s_temp, out_file);
-                free(step_s_temp);
+        if (summary.identifier_type != Data) {
+            if (import_script != NULL) {
+                fwrite(import_script, 1, strlen(import_script), out_file);
+                free(import_script);
             }
-        } else {
-            fputs("\n", out_file);
+            fprintf(out_file, "void %s() {\n", summary.name);
+            if (summary.debug == Y) {
+                if (summary.identifier_type == Flow) {
+                    char *flow_s_temp = flow_s();
+                    fputs(flow_s_temp, out_file);
+                    free(flow_s_temp);
+                } else {
+                    char *step_s_temp = step_s();
+                    fputs(step_s_temp, out_file);
+                    free(step_s_temp);
+                }
+            } else {
+                fputs("\n", out_file);
+            }
         }
     }
 
-    fputs("\t", out_file);
-    fputs(print_die(namespace, summary.debug, summary.identifier_type), out_file);
-    free(namespace);
-    fputs("\n}", out_file);
+    if (summary.identifier_type != Data) {
+        fputs("\t", out_file);
+        fputs(print_die(namespace, summary.debug, summary.identifier_type), out_file);
+        free(namespace);
+        fputs("\n}", out_file);
+    }
 
     cleanup:
         fclose(in_file);

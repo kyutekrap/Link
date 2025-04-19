@@ -15,6 +15,17 @@ ABCD[0] = 1;
 ABCD[1] = 2;
 ABCD[2] = 3;
 
+int *Data1 = malloc(9 * sizeof(int));
+Data1[0] = 1;
+Data1[1] = 2;
+Data1[2] = 3;
+Data1[3] = 4;
+Data1[4] = 5;
+Data1[5] = 6;
+Data1[6] = 7;
+Data1[7] = 8;
+Data1[8] = 9;
+
 void src_test2() {
 	clock_t __step_start__, __step_end__; __step_start__ = clock();
 	printf("[Warning]: %s", A);

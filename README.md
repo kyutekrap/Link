@@ -29,9 +29,9 @@ To create a lightweight, utility-focused language that blends the **simplicity o
 ### 🧰 Built-in Functions  
 - `#flow` - Inherited from PyLink's Flow
 - `#step` - Inherited from PyLink's Step
+- `#data` - Defines file as data
 - `@debug()` - Inherited from PyLink's Debug
-- `@set()` - Set global variable in Flow
-- `@get()` - Get global variable in Step
+- `@global()` - Define global variable in Flow
 - `@import()` - Import Steps to Flow
 - `info()` – Inherited from PyLink's Debugger  
 - `warning()` – Inherited from PyLink's Debugger  
@@ -47,6 +47,8 @@ To create a lightweight, utility-focused language that blends the **simplicity o
 
 ### 🗑️ Removed Functions
 - `@param()` - Set parameters for function
+- `@set()` - Set global variable in Flow
+- `@get()` - Get global variable in Step
 - `SetStep()` - Inherited from PyLink's SetStep
 - `GetStep()` - Inherited from PyLink's GetStep
 - `SetFlow()` - Inherited from PyLink's SetFlow
