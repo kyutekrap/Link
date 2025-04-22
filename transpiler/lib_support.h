@@ -1,5 +1,5 @@
-#ifndef transpiler_H
-#define transpiler_H
+#ifndef lib_support_H
+#define lib_support_H
 
 #include <stdio.h>
 #include <string.h>
@@ -10,14 +10,9 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include "./error_code.h"
-#include "../debugger/debugger.h"
-#include "../utils/utils.h"
-#include "../flow/flow.h"
-#include "../step/step.h"
-// #include "./lib_support.h"
 #include "./enums.h"
 #include "./structs.h"
 
-void transpiler(char *filename);
+void lib_support(char *filepath);
 
 #endif

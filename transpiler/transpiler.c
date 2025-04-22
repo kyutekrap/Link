@@ -11,97 +11,6 @@
 
 // ===== DEFINITIONS (END)
 
-// ===== BASIC ENUMS (START)
-
-typedef enum {
-    CommentText,
-    IdentifierText,
-    PropertyText,
-    FreeLineText
-} TextType;
-
-typedef enum {
-    OneLineComment,
-    MultiLineComment
-} CommentType;
-
-typedef enum {
-    Flow,
-    Step,
-    Data,
-    UnknownIdentifier
-} IdentifierType;
-
-typedef enum {
-    Global,
-    Debug,
-    Import,
-    UnknownProperty
-} PropertyType;
-
-typedef enum {
-    String,
-    Integer,
-    Double,
-    List,
-    StringList,
-    IntegerList,
-    DoubleList,
-    Map,
-    StringMap,
-    IntegerMap,
-    DoubleMap,
-    UnknownDataType,
-    None
-} DataType;
-
-typedef enum {
-    EqualTo,
-    GreaterThan,
-    LesserThan,
-    GreaterOrEqual,
-    LesserOrEqual,
-    UnknownComparator
-} ComparatorType;
-
-typedef enum {
-    StringLiteral,
-    IntegerStatic,
-    DoubleStatic,
-    StringVar,
-    IntegerVar,
-    DoubleVar,
-    UnknownComparatorDataType
-} ComparatorDataType;
-
-// ===== BASIC ENUMS (END)
-
-// ===== BASIC STRUCTS (START)
-
-typedef struct {
-    PropertyType property_type;
-    char *property_value;
-} Property;
-
-typedef struct {
-    char *function_type;
-    char *function_value;
-} Function;
-
-typedef struct {
-    char *name;
-    StrList imports;
-    YesNo debug;
-    IdentifierType identifier_type;
-} TranspilerSummary;
-
-typedef struct {
-    ComparatorType type;
-    char *value;
-} Comparator;
-
-// ===== BASIC STRUCTS (END)
-
 // ===== UTILS (START)
 
 char *error_code2str(ErrorCode error_code) {
@@ -1500,6 +1409,8 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                             syslogger(filename, fline_number, FILE_NOT_FOUND);
                             goto cleanup;
                         }
+
+                        // TODO
 
                         free(cwd);
                     }
