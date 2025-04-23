@@ -15,7 +15,7 @@ multi-line comment
 
 @import("./src/test.link")
 @import("./src/test2.link")
-@import("./libs/list/main.h")
+@import("./libs/neutrocon/main.h")
 
 depends(A, {[eq("Hello")], [test2()]})
 depends(AB, {[gt(0), lt(100)], [test2(), die()]})
