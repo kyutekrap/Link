@@ -1,3 +1,9 @@
+#ifndef structs_H
+#define structs_H
+
+#include "./enums.h"
+#include "../utils/utils.h"
+
 typedef struct {
     PropertyType property_type;
     char *property_value;
@@ -19,3 +25,5 @@ typedef struct {
     ComparatorType type;
     char *value;
 } Comparator;
+
+#endif

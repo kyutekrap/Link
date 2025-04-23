@@ -1,10 +1,4 @@
-// ===== EXTERNAL SOURCES (START)
-
-#include "./lib_support.h"
-
-// ===== EXTERNAL SOURCES (END)
-
-// ===== UTILS (START)
+#include "./helper.h"
 
 char *error_code2str(ErrorCode error_code) {
     switch (error_code) {
@@ -22,8 +16,8 @@ char *error_code2str(ErrorCode error_code) {
             return "C_COMPILE_ERROR";
         case UNKNOWN_DATATYPE:
             return "UNKNOWN_DATATYPE";
-        case INVALID_filepath:
-            return "INVALID_filepath";
+        case INVALID_FILENAME:
+            return "INVALID_FILENAME";
         case PREDEFINED_VARIABLE:
             return "PREDEFINED_VARIABLE";
         case INVALID_IMPORT:
@@ -36,6 +30,8 @@ char *error_code2str(ErrorCode error_code) {
             return "ILLEGAL_DATATYPE";
         case REPEATED_KEY:
             return "REPEATED_KEY";
+        case UNMATCHED_ELEMENTS:
+            return "UNMATCHED_ELEMENTS";
     }
     return strdup("");
 }
@@ -43,6 +39,29 @@ char *error_code2str(ErrorCode error_code) {
 void syslogger(char *path, int line, ErrorCode error_code) {
     printf("[Error Path]: %s\n[Error Line]: %i\n[Error Code]: %s\n", path, line, error_code2str(error_code));
     printf("----------------------------------------\n");
+}
+
+char *get_cwd(char *filename) {
+    IntList mlist = char_index(filename, '\\');
+    if (mlist.count == 0) {
+        return NULL;
+    }
+
+    int cnt = *(mlist.data[mlist.count - 1]);
+    char *result = substr(filename, 0, cnt);
+
+    for (int i = 0; i < mlist.count; i++) {
+        free(mlist.data[i]);
+    }
+    free(mlist.data);
+
+    return result;
+}
+
+void *get_full_path(char *cwd, char *relative_path, char *out_path) {
+    char combined_path[PATH_MAX];
+    snprintf(combined_path, sizeof(combined_path), "%s%s", cwd, relative_path);
+    _fullpath(out_path, combined_path, PATH_MAX);
 }
 
 IntList char_index(char *str, char target) {
@@ -127,6 +146,44 @@ YesNo is_empty(char *fline) {
     return Y;
 }
 
+char *extract_string(char *fline) {
+    return substr(fline, 1, strlen(fline)-2);
+}
+
+YesNo is_integer(char *var) {
+    if (var == NULL || *var == '\0')
+        return N;
+
+    for (int i = 0; var[i] != '\0'; i++) {
+        if (!isdigit((unsigned char)var[i])) {
+            if (!(var[i] == '-' && i == 0))
+                return N;
+        }   
+    }
+
+    return Y;
+}
+
+YesNo is_double(char *var) {
+    if (var == NULL || *var == '\0')
+        return N;
+
+    int has_point = 0;
+    for (int i=0; var[i] != '\0'; i++) {
+        if (var[i] == '.') {
+            if (has_point == 0)
+                has_point = 1;
+            else
+                return N;
+        } else if (!isdigit((unsigned char)var[i])) {
+            if (!(var[i] == '-' && i == 0))
+                return N;
+        }
+    }
+
+    return Y;
+}
+
 DataType get_ltype(char *str) {
     DataType ltype = UnknownDataType;
     StrList mlist = str2list(substr(str, 1, strlen(str)-2));
@@ -162,6 +219,55 @@ DataType get_ltype(char *str) {
     return ltype;
 }
 
+Comparator parse_comparator(char *str) {
+    Comparator comparator = {UnknownComparator, NULL};
+
+    int str_len = strlen(str);
+    if (is_empty(str) == Y || str_len < 5)
+        return comparator;
+
+    IntList mlist = char_index(str, '(');
+    if (mlist.count != 1)
+        return comparator;
+
+    char *type = substr(str, 0, *mlist.data[0]);
+    if (strcmp(type, "eq") == 0) comparator.type = EqualTo;
+    else if (strcmp(type, "gt") == 0) comparator.type = GreaterThan;
+    else if (strcmp(type, "lt") == 0) comparator.type = LesserThan;
+    else if (strcmp(type, "gte") == 0) comparator.type = GreaterOrEqual;
+    else if (strcmp(type, "lte") == 0) comparator.type = LesserOrEqual;
+    else return comparator;
+
+    comparator.value = substr(str, *mlist.data[0] + 1, str_len - *mlist.data[0] - 2);
+    return comparator;
+}
+
+ComparatorDataType get_comparator_type(char *str, IntMap params) {
+    int str_len = strlen(str);
+    if (str_len >= 2 && str[0] == '"' && str[str_len-1] == '"') {
+        return StringLiteral;
+    }
+    else if (is_integer(str) == Y) {
+        return IntegerStatic;
+    }
+    else if (is_double(str) == Y) {
+        return DoubleStatic;
+    }
+    else {
+        int *temp_type = int_map_get(params, str);
+        if (temp_type == NULL)
+            return UnknownDataType;
+        else if (*temp_type == String)
+            return StringVar;
+        else if (*temp_type == Integer)
+            return IntegerVar;
+        else if (*temp_type == Double)
+            return DoubleVar;
+    }
+
+    return UnknownComparatorDataType;
+}
+
 StrList parse_map(char *map) {
     StrList res = {0, NULL};
 
@@ -182,10 +288,6 @@ StrList parse_map(char *map) {
 
     return res;
 }
-
-// ===== UTILS (END)
-
-// ===== TOP-DOWN PROCEDURAL GROUPING (START)
 
 YesNo is_one_line_comment(char *fline) {
     const int pos = 0;
@@ -297,128 +399,3 @@ DataType get_dtype(char *str) {
 
     return UnknownDataType;
 }
-
-// ===== TOP-DOWN PROCEDURAL GROUPING (END)
-
-// ===== MAIN (START)
-
-void lib_support(char *filepath) {
-    FILE *in_file = fopen(filepath, "r");
-
-    TextType text_type = IdentifierText;
-    CommentType comment_type = OneLineComment;
-
-    char fline[1024];
-    int fline_number = 0;
-    while (fgets(fline, sizeof(fline), in_file)) {
-        fline_number ++;
-
-        if (is_empty(fline) == Y)
-            continue;
-
-        trim(fline);
-    
-        if (comment_type == OneLineComment) {
-            if(is_one_line_comment(fline) == Y)
-                continue;
-            if (started_multi_line_comment(fline) == Y) {
-                comment_type = MultiLineComment;
-                continue;
-            }
-        } else {
-            if (ended_multi_line_comment(fline) == Y) {
-                comment_type = OneLineComment;
-            }
-            continue;
-        }
-
-        switch(text_type) {
-            case IdentifierText:
-                summary.identifier_type = find_identifier(fline);
-                if (summary.identifier_type != Data) {
-                    syslogger(filepath, fline_number, UNKNOWN_IDENTIFIER);
-                    goto cleanup;
-                }
-                text_type = PropertyText;
-                break;
-            
-            case PropertyText:
-                if (is_property(fline) == N) {
-                    // TODO: Throw Error
-                }
-                else
-                {
-                    Property property_obj = parse_property(fline);
-                    if (property_obj.property_type != Global) {
-                        syslogger(filepath, fline_number, UNKNOWN_PROPERTY);
-                        goto cleanup;
-                    }
-
-                    StrList mlist = str2list(property_obj.property_value);
-
-                    DataType dtype = get_dtype(mlist.data[1]);
-                    if (dtype != Map) {
-                        syslogger(filepath, fline_number, UNKNOWN_DATATYPE);
-                        goto cleanup;
-                    }
-
-                    char *vname = trim(mlist.data[0]);
-
-                    StrList map_args = parse_map(mlist.data[1]);
-                    if (map_args.count == 0) {
-                        syslogger(filepath, fline_number, UNKNOWN_DATATYPE);
-                        goto cleanup;
-                    }
-
-                    DataType dtype = get_dtype(map_args.data[0]);
-                    if (dtype != List) {
-                        syslogger(filepath, fline_number, UNKNOWN_DATATYPE);
-                        goto cleanup;
-                    }
-
-                    DataType ltype = get_ltype(map_args.data[0]);
-                    if (ltype != String) {
-                        syslogger(filepath, fline_number, ILLEGAL_DATATYPE);
-                        goto cleanup;
-                    }
-
-                    StrList elements1 = str2list(substr(map_args.data[0], 1, strlen(map_args.data[0]) - 2));
-                    for (int i=0; i<elements1.count; i++) {
-                        for (int j=0; j<elements1.count; j++) {
-                            if (i == j) continue;
-                            if (strcmp(elements1.data[i], elements1.data[j]) == 0) {
-                                syslogger(filepath, fline_number, REPEATED_KEY);
-                                goto cleanup;
-                            }
-                        }
-                    }
-
-                    dtype = get_dtype(map_args.data[1]);
-                    if (dtype != List) {
-                        syslogger(filepath, fline_number, UNKNOWN_DATATYPE);
-                        goto cleanup;
-                    }
-
-                    ltype = get_ltype(map_args.data[1]);
-                    if (ltype != String) {
-                        syslogger(filepath, fline_number, ILLEGAL_DATATYPE);
-                        goto cleanup;
-                    }
-
-                    StrList elements2 = str2list(substr(map_args.data[1], 1, strlen(map_args.data[1]) - 2));
-                }
-                break;
-        }
-    }
-
-    // TODO: Make file
-    // TODO: Delete old file
-
-    cleanup:
-        fclose(in_file);
-        fclose(out_file);    
-
-    return summary;
-}
-
-// ===== MAIN (END)

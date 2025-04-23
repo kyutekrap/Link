@@ -59,21 +59,6 @@ To create a lightweight, utility-focused language that blends the **simplicity o
 
 ---
 
-### 📚 Basic Libraries
-1. List
-- `pad()`
-- `elements()`
-- `index()`
-- `definition()`
-2. Map
-- `keys()`
-- `values()`
-- `key()`
-3. Grid
-4. NeutroCon
-
----
-
 ### 🔧 In-Line Operators
 - ["A", "B", "C"] - Creates a list of strings
 - [100, 200, 300] - Creates a list of integers
@@ -92,3 +77,8 @@ To create a lightweight, utility-focused language that blends the **simplicity o
 - String Map
 - Integer Map
 - Double Map
+
+---
+
+>🔹 **Note**  
+Link has external support for C libraries that you can use with the `@import` function.
