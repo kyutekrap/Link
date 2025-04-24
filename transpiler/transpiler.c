@@ -6,7 +6,7 @@
 
 // ===== DEFINITIONS (START)
 
-#define HEADER "#include <stdlib.h>\n#include <string.h>\n"
+#define HEADER "#include <string.h>\n"
 #define HEADER_DEBUG "#include <stdio.h>\n#include <time.h>\n\n"
 
 // ===== DEFINITIONS (END)
@@ -816,7 +816,7 @@ ErrorCode analyze_free_line_text(char *fline, FILE *out_file, YesNo debug, StrMa
 
 // ===== MAIN (START)
 
-TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, IntMap *params) {
+TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, IntMap *params, IntMap *paramSize) {
     TranspilerSummary summary = {NULL, {0, NULL}, debug, Flow};
 
     char *namespace = get_namespace(filename, origin);
@@ -967,7 +967,7 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
     
                             char *full_path_c = get_target_name(full_path);
                             if (access(full_path_c, F_OK) != 0) {
-                                TranspilerSummary func_summary = transpiler_main(full_path, origin, summary.debug, params);
+                                TranspilerSummary func_summary = transpiler_main(full_path, origin, summary.debug, params, paramSize);
                                 if (summary.identifier_type == Flow && func_summary.identifier_type == Flow) {
                                     free(cwd);
                                     free(func_namespace);
@@ -1036,18 +1036,15 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                             goto cleanup;
                         }
 
-                        size_t str_len = strlen(extract_string(mlist.data[1])) + 1;
-                        int line1_len = snprintf(NULL, 0, "char *%s = malloc(%zu);\n", vname, str_len);
-                        char *buffer1 = malloc(line1_len + 1);
-                        sprintf(buffer1, "char *%s = malloc(%zu);\n", vname, str_len);
-                        global_script = join_str(global_script, buffer1);
-                        free(buffer1);
-
-                        int line2_len = snprintf(NULL, 0, "strcpy(%s, %s);\n", vname, mlist.data[1]);
-                        char *buffer2 = malloc(line2_len + 1);
-                        sprintf(buffer2, "strcpy(%s, %s);\n", vname, mlist.data[1]);
-                        global_script = join_str(global_script, buffer2);
-                        free(buffer2);
+                        int line_len = snprintf(NULL, 0, "const char %s[] = %s;\n", vname, mlist.data[1]);
+                        char *buffer = malloc(line_len + 1);
+                        if (!buffer) {
+                            syslogger(filename, fline_number, C_COMPILE_ERROR);
+                            goto cleanup;
+                        }
+                        sprintf(buffer, "const char %s[] = %s;\n", vname, mlist.data[1]);
+                        global_script = join_str(global_script, buffer);
+                        free(buffer);
 
                         *params = int_map_set(*params, vname, String);
                         free(vname);
@@ -1060,9 +1057,9 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                             goto cleanup;
                         }
 
-                        int line1_len = snprintf(NULL, 0, "int %s = %s;\n", vname, mlist.data[1]);
+                        int line1_len = snprintf(NULL, 0, "const int %s = %s;\n", vname, mlist.data[1]);
                         char *buffer1 = malloc(line1_len + 1);
-                        sprintf(buffer1, "int %s = %s;\n", vname, mlist.data[1]);
+                        sprintf(buffer1, "const int %s = %s;\n", vname, mlist.data[1]);
                         global_script = join_str(global_script, buffer1);
                         free(buffer1);
 
@@ -1077,9 +1074,9 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                             goto cleanup;
                         }
 
-                        int line1_len = snprintf(NULL, 0, "double %s = %s;\n", vname, mlist.data[1]);
+                        int line1_len = snprintf(NULL, 0, "const double %s = %s;\n", vname, mlist.data[1]);
                         char *buffer1 = malloc(line1_len + 1);
-                        sprintf(buffer1, "double %s = %s;\n", vname, mlist.data[1]);
+                        sprintf(buffer1, "const double %s = %s;\n", vname, mlist.data[1]);
                         global_script = join_str(global_script, buffer1);
                         free(buffer1);
 
@@ -1098,64 +1095,95 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                         if (ltype == String) {
                             StrList elements = str2list(substr(mlist.data[1], 1, strlen(mlist.data[1])-2));
                             
-                            int line1_len = snprintf(NULL, 0, "char **%s = malloc(%i * sizeof(char*));\n", vname, elements.count);
-                            char *buffer1 = malloc(line1_len + 1);
-                            sprintf(buffer1, "char **%s = malloc(%i * sizeof(char*));\n", vname, elements.count);
-                            global_script = join_str(global_script, buffer1);
-                            free(buffer1);
-
-                            for (int i=0; i<elements.count; i++) {
-                                int line2_len = snprintf(NULL, 0, "%s[%i] = strdup(%s);\n", vname, i, elements.data[i]);
-                                char *buffer2 = malloc(line1_len + 1);
-                                sprintf(buffer2, "%s[%i] = strdup(%s);\n", vname, i, elements.data[i]);
-                                global_script = join_str(global_script, buffer2);
-                                free(buffer2);
+                            int line_len = snprintf(NULL, 0, "const char *%s[] = {", vname);
+                            for (int i = 0; i < elements.count; i++) {
+                                line_len += strlen(elements.data[i]) + 4;
                             }
+                            line_len += 4;
+                            
+                            char *buffer = malloc(line_len);
+                            if (!buffer) {
+                                syslogger(filename, fline_number, C_COMPILE_ERROR);
+                                goto cleanup;
+                            }
+                            
+                            sprintf(buffer, "const char *%s[] = {", vname);
+                            for (int i = 0; i < elements.count; i++) {
+                                strcat(buffer, elements.data[i]);
+                                if (i < elements.count - 1)
+                                    strcat(buffer, ", ");
+                            }
+                            strcat(buffer, "};\n");
+                            
+                            global_script = join_str(global_script, buffer);
+                            free(buffer);
 
                             *params = int_map_set(*params, vname, StringList);
+                            *paramSize = int_map_set(*paramSize, vname, elements.count);
                             free(vname);
                         }
                         else if (ltype == Integer) {
                             StrList elements = str2list(substr(mlist.data[1], 1, strlen(mlist.data[1])-2));
 
-                            int line1_len = snprintf(NULL, 0, "int *%s = malloc(%i * sizeof(int));\n", vname, elements.count);
-                            char *buffer1 = malloc(line1_len + 1);
-                            sprintf(buffer1, "int *%s = malloc(%i * sizeof(int));\n", vname, elements.count);
-                            global_script = join_str(global_script, buffer1);
-                            free(buffer1);
-
-                            for (int i=0; i<elements.count; i++) {
-                                int line2_len = snprintf(NULL, 0, "%s[%i] = %s;\n", vname, i, elements.data[i]);
-                                char *buffer2 = malloc(line1_len + 1);
-                                sprintf(buffer2, "%s[%i] = %s;\n", vname, i, elements.data[i]);
-                                global_script = join_str(global_script, buffer2);
-                                free(buffer2);
+                            int line_len = snprintf(NULL, 0, "const int %s[] = {", vname);
+                            for (int i = 0; i < elements.count; i++) {
+                                line_len += strlen(elements.data[i]) + 2;
                             }
+                            line_len += 4;
+                            
+                            char *buffer = malloc(line_len);
+                            if (!buffer) {
+                                syslogger(filename, fline_number, C_COMPILE_ERROR);
+                                goto cleanup;
+                            }
+                            
+                            sprintf(buffer, "const int %s[] = {", vname);
+                            for (int i = 0; i < elements.count; i++) {
+                                strcat(buffer, elements.data[i]);
+                                if (i < elements.count - 1)
+                                    strcat(buffer, ", ");
+                            }
+                            strcat(buffer, "};\n");
+                            
+                            global_script = join_str(global_script, buffer);
+                            free(buffer);
 
                             *params = int_map_set(*params, vname, IntegerList);
+                            *paramSize = int_map_set(*paramSize, vname, elements.count);
                             free(vname);
                         }
                         else if (ltype == Double) {
                             StrList elements = str2list(substr(mlist.data[1], 1, strlen(mlist.data[1])-2));
 
-                            int line1_len = snprintf(NULL, 0, "double *%s = malloc(%i * sizeof(double));\n", vname, elements.count);
-                            char *buffer1 = malloc(line1_len + 1);
-                            sprintf(buffer1, "double *%s = malloc(%i * sizeof(double));\n", vname, elements.count);
-                            global_script = join_str(global_script, buffer1);
-                            free(buffer1);
-
-                            for (int i=0; i<elements.count; i++) {
-                                int line2_len = snprintf(NULL, 0, "%s[%i] = %s;\n", vname, i, elements.data[i]);
-                                char *buffer2 = malloc(line1_len + 1);
-                                sprintf(buffer2, "%s[%i] = %s;\n", vname, i, elements.data[i]);
-                                global_script = join_str(global_script, buffer2);
-                                free(buffer2);
+                            int line_len = snprintf(NULL, 0, "const double %s[] = {", vname);
+                            for (int i = 0; i < elements.count; i++) {
+                                line_len += strlen(elements.data[i]) + 2;
                             }
+                            line_len += 4;
+                            
+                            char *buffer = malloc(line_len);
+                            if (!buffer) {
+                                syslogger(filename, fline_number, C_COMPILE_ERROR);
+                                goto cleanup;
+                            }
+                            
+                            sprintf(buffer, "const double %s[] = {", vname);
+                            for (int i = 0; i < elements.count; i++) {
+                                strcat(buffer, elements.data[i]);
+                                if (i < elements.count - 1)
+                                    strcat(buffer, ", ");
+                            }
+                            strcat(buffer, "};\n");
+                            
+                            global_script = join_str(global_script, buffer);
+                            free(buffer);
 
-                            *params = int_map_set(*params, vname, IntegerList);
+                            *params = int_map_set(*params, vname, DoubleList);
+                            *paramSize = int_map_set(*paramSize, vname, elements.count);
                             free(vname);
                         }
-                        else {
+                        else
+                        {
                             syslogger(filename, fline_number, UNKNOWN_DATATYPE);
                             free(vname);
                             goto cleanup;
@@ -1175,11 +1203,6 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                             goto cleanup;
                         }
 
-                        int line_len = snprintf(NULL, 0, "void **%s = malloc(2 * sizeof(void*));\n", vname);
-                        char *buffer = malloc(line_len + 1);
-                        sprintf(buffer, "void **%s = malloc(2 * sizeof(void*));\n", vname);
-                        global_script = join_str(global_script, buffer);
-
                         DataType dtype = get_dtype(map_args.data[0]);
                         if (dtype == UnknownDataType) {
                             int *_dtype = int_map_get(*params, map_args.data[0]);
@@ -1187,20 +1210,49 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                 syslogger(filename, fline_number, ILLEGAL_DATATYPE);
                                 goto cleanup;
                             }
+
+                            int *size = int_map_get(*paramSize, map_args.data[0]);
+                            int line_len = snprintf(NULL, 0, "const void *%s[2][%d];\n", vname, *size);
+                            char *buffer = malloc(line_len + 1);
+                            if (!buffer) {
+                                syslogger(filename, fline_number, C_COMPILE_ERROR);
+                                goto cleanup;
+                            }
+
+                            sprintf(buffer, "const void *%s[2][%d];\n", vname, *size);
+                            global_script = join_str(global_script, buffer);
+
                             line_len = snprintf(NULL, 0, "%s[0] = %s;\n", vname, map_args.data[0]);
                             buffer = realloc(buffer, line_len + 1);
+                            if (!buffer) {
+                                syslogger(filename, fline_number, C_COMPILE_ERROR);
+                                goto cleanup;
+                            }
+                            
                             sprintf(buffer, "%s[0] = %s;\n", vname, map_args.data[0]);
                             global_script = join_str(global_script, buffer);
+                            free(buffer);
                         } else if (dtype == List) {
                             DataType ltype = get_ltype(map_args.data[0]);
                             if (ltype != String) {
                                 syslogger(filename, fline_number, ILLEGAL_DATATYPE);
                                 goto cleanup;
                             }
+
                             StrList elements1 = str2list(substr(map_args.data[0], 1, strlen(map_args.data[0]) - 2));
 
-                            for (int i=0; i<elements1.count; i++) {
-                                for (int j=0; j<elements1.count; j++) {
+                            int line_len = snprintf(NULL, 0, "const void *%s[2][%d];\n", vname, elements1.count);
+                            char *buffer = malloc(line_len + 1);
+                            if (!buffer) {
+                                syslogger(filename, fline_number, C_COMPILE_ERROR);
+                                goto cleanup;
+                            }
+
+                            sprintf(buffer, "const void *%s[2][%d];\n", vname, elements1.count);
+                            global_script = join_str(global_script, buffer);
+
+                            for (int i = 0; i < elements1.count; i++) {
+                                for (int j = 0; j < elements1.count; j++) {
                                     if (i == j) continue;
                                     if (strcmp(elements1.data[i], elements1.data[j]) == 0) {
                                         syslogger(filename, fline_number, REPEATED_KEY);
@@ -1209,16 +1261,19 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                 }
                             }
 
-                            line_len = snprintf(NULL, 0, "%s[1] = malloc(%i * sizeof(char*));\n", vname, elements1.count);
-                            buffer = realloc(buffer, line_len + 1);
-                            sprintf(buffer, "%s[1] = malloc(%i * sizeof(char*));\n", vname, elements1.count);
-                            global_script = join_str(global_script, buffer);
-                            for (int i=0; i<elements1.count; i++) {
-                                line_len = snprintf(NULL, 0, "%s[1][%i] = strdup(\"%s\");\n", vname, i, elements1.data[i]);
+                            for (int i = 0; i < elements1.count; i++) {
+                                line_len = snprintf(NULL, 0, "%s[0][%d] = %s;\n", vname, i, elements1.data[i]);
                                 buffer = realloc(buffer, line_len + 1);
-                                sprintf(buffer, "%s[1][%i] = strdup(\"%s\");\n", vname, i, elements1.data[i]);
+                                if (!buffer) {
+                                    syslogger(filename, fline_number, C_COMPILE_ERROR);
+                                    goto cleanup;
+                                }
+                                
+                                sprintf(buffer, "%s[0][%d] = %s;\n", vname, i, elements1.data[i]);
                                 global_script = join_str(global_script, buffer);
                             }
+
+                            free(buffer);
                         } else {
                             syslogger(filename, fline_number, ILLEGAL_DATATYPE);
                             goto cleanup;
@@ -1231,58 +1286,44 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                 syslogger(filename, fline_number, ILLEGAL_DATATYPE);
                                 goto cleanup;
                             }
-                            line_len = snprintf(NULL, 0, "%s[1] = %s;\n", vname, map_args.data[1]);
-                            buffer = realloc(buffer, line_len + 1);
+                            
+                            int line_len = snprintf(NULL, 0, "%s[1] = %s;\n", vname, map_args.data[1]);
+                            char *buffer = malloc(line_len + 1);
+                            if (!buffer) {
+                                syslogger(filename, fline_number, C_COMPILE_ERROR);
+                                goto cleanup;
+                            }
+                            
                             sprintf(buffer, "%s[1] = %s;\n", vname, map_args.data[1]);
                             global_script = join_str(global_script, buffer);
+                            free(buffer);
                         } else if (dtype == List) {
                             dtype = get_ltype(map_args.data[1]);
                             if (dtype == UnknownDataType) {
                                 syslogger(filename, fline_number, ILLEGAL_DATATYPE);
                                 goto cleanup;
                             }
+
                             StrList elements2 = str2list(substr(map_args.data[1], 1, strlen(map_args.data[1]) - 2));
-                            if (dtype == String) {
-                                line_len = snprintf(NULL, 0, "%s[1] = malloc(%i * sizeof(char*));\n", vname, elements2.count);
+                            char *buffer = NULL;
+                            for (int i = 0; i < elements2.count; i++) {
+                                int line_len = snprintf(NULL, 0, "%s[0][%d] = %s;\n", vname, i, elements2.data[i]);
                                 buffer = realloc(buffer, line_len + 1);
-                                sprintf(buffer, "%s[1] = malloc(%i * sizeof(char*));\n", vname, elements2.count);
-                                global_script = join_str(global_script, buffer);
-                                for (int i=0; i<elements2.count; i++) {
-                                    line_len = snprintf(NULL, 0, "%s[1][%i] = strdup(\"%s\");\n", vname, i, elements2.data[i]);
-                                    buffer = realloc(buffer, line_len + 1);
-                                    sprintf(buffer, "%s[1][%i] = strdup(\"%s\");\n", vname, i, elements2.data[i]);
-                                    global_script = join_str(global_script, buffer);
+                                if (!buffer) {
+                                    syslogger(filename, fline_number, C_COMPILE_ERROR);
+                                    goto cleanup;
                                 }
-                            } else if (dtype == Integer) {
-                                line_len = snprintf(NULL, 0, "%s[1] = malloc(%i * sizeof(int));\n", vname, elements2.count);
-                                buffer = realloc(buffer, line_len + 1);
-                                sprintf(buffer, "%s[1] = malloc(%i * sizeof(int));\n", vname, elements2.count);
+                                
+                                sprintf(buffer, "%s[0][%d] = %s;\n", vname, i, elements2.data[i]);
                                 global_script = join_str(global_script, buffer);
-                                for (int i=0; i<elements2.count; i++) {
-                                    line_len = snprintf(NULL, 0, "%s[1][%i] = %s;\n", vname, i, elements2.data[i]);
-                                    buffer = realloc(buffer, line_len + 1);
-                                    sprintf(buffer, "%s[1][%i] = %s;\n", vname, i, elements2.data[i]);
-                                    global_script = join_str(global_script, buffer);
-                                }
-                            } else if (dtype == Double) {
-                                line_len = snprintf(NULL, 0, "%s[1] = malloc(%i * sizeof(double));\n", vname, elements2.count);
-                                buffer = realloc(buffer, line_len + 1);
-                                sprintf(buffer, "%s[1] = malloc(%i * sizeof(double));\n", vname, elements2.count);
-                                global_script = join_str(global_script, buffer);
-                                for (int i=0; i<elements2.count; i++) {
-                                    line_len = snprintf(NULL, 0, "%s[1][%i] = %s;\n", vname, i, elements2.data[i]);
-                                    buffer = realloc(buffer, line_len + 1);
-                                    sprintf(buffer, "%s[1][%i] = %s;\n", vname, i, elements2.data[i]);
-                                    global_script = join_str(global_script, buffer);
-                                }
                             }
+                            free(buffer);
                         } else {
                             syslogger(filename, fline_number, ILLEGAL_DATATYPE);
                             goto cleanup;
                         }
 
                         *params = int_map_set(*params, vname, dtype);
-                        free(buffer);
                     }
                 }
                 else if (property_obj.property_type == UnknownProperty) {
@@ -1359,7 +1400,8 @@ void transpiler(char *filename) {
     delete_old_files(cwd);
 
     IntMap params = {0, {0, NULL}, {0, NULL}};
-    TranspilerSummary summary = transpiler_main(filename, cwd, N, &params);
+    IntMap paramSize = {0, {0, NULL}, {0, NULL}};
+    TranspilerSummary summary = transpiler_main(filename, cwd, N, &params, &paramSize);
     free(cwd);
     free(summary.name);
     summary.imports = clear_str_list(summary.imports);

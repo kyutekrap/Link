@@ -1,40 +1,24 @@
-#include "./libs/list/main.h";
-#include <stdlib.h>
+#include "./libs/neutrocon/main.h";
 #include <string.h>
 #include <stdio.h>
 #include <time.h>
 
-char *A = malloc(6);
-strcpy(A, "Hello");
-int AB = -123;
-char **ABC = malloc(3 * sizeof(char*));
-ABC[0] = strdup("A");
-ABC[1] = strdup("B");
-ABC[2] = strdup("C");
-double *ABCD = malloc(3 * sizeof(double));
-ABCD[0] = 1.1;
-ABCD[1] = 2.2;
-ABCD[2] = 3.3;
-void **Map1 = malloc(2 * sizeof(void*));
+const char A[] = "Hello";
+const int AB = -123;
+const char *ABC[] = {"A", "B", "C"};
+const double ABCD[] = {1.1, 2.2, 3.3};
+const void *Map1[2][3];
 Map1[0] = ABC;
 Map1[1] = ABC;
-void **Map2 = malloc(2 * sizeof(void*));
-Map2[0] = ABC;
-Map2[1] = malloc(3 * sizeof(int));
-Map2[1][0] = 1;
-Map2[1][1] = 2;
-Map2[1][2] = 3;
+const void *Map2[2][3];
+Map2[0][0] = "A";
+Map2[0][1] = "B";
+Map2[0][2] = "C";
+Map2[0][0] = 1;
+Map2[0][1] = 2;
+Map2[0][2] = 3;
 
-int *Data1 = malloc(9 * sizeof(int));
-Data1[0] = 1;
-Data1[1] = 2;
-Data1[2] = 3;
-Data1[3] = 4;
-Data1[4] = 5;
-Data1[5] = 6;
-Data1[6] = 7;
-Data1[7] = 8;
-Data1[8] = 9;
+const int Data1[] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
 
 void src_test2() {
 	clock_t __step_start__, __step_end__; __step_start__ = clock();
