@@ -63,7 +63,8 @@ To create a lightweight, utility-focused language that blends the **simplicity o
 - ["A", "B", "C"] - Creates a list of strings
 - [100, 200, 300] - Creates a list of integers
 - [100.0, 200.0, 300.0] - Creates a list of doubles
-- {["A", "B", "C"], [100, 200, 300]} - Creates a map of two lists
+- [[100, 200, 300], [100, 200, 300]] - Creates a list of lists of integer
+- [[100.0, 200.0, 300.0], [100.0, 200.0, 300.0]] - Creates a list of lists of double
 
 ---
 
@@ -74,9 +75,6 @@ To create a lightweight, utility-focused language that blends the **simplicity o
 - String List
 - Integer List
 - Double List
-- String Map
-- Integer Map
-- Double Map
 
 ---
 

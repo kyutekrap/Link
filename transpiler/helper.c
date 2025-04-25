@@ -186,6 +186,7 @@ YesNo is_double(char *var) {
 
 DataType get_ltype(char *str) {
     DataType ltype = UnknownDataType;
+
     StrList mlist = str2list(substr(str, 1, strlen(str)-2));
 
     char *current;

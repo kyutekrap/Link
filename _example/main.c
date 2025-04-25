@@ -7,16 +7,6 @@ const char A[] = "Hello";
 const int AB = -123;
 const char *ABC[] = {"A", "B", "C"};
 const double ABCD[] = {1.1, 2.2, 3.3};
-const void *Map1[2][3];
-Map1[0] = ABC;
-Map1[1] = ABC;
-const void *Map2[2][3];
-Map2[0][0] = "A";
-Map2[0][1] = "B";
-Map2[0][2] = "C";
-Map2[0][0] = 1;
-Map2[0][1] = 2;
-Map2[0][2] = 3;
 
 const int Data1[] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
 

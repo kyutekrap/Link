@@ -58,6 +58,9 @@ typedef enum {
     StringMap,
     IntegerMap,
     DoubleMap,
+    Grid,
+    IntegerGrid,
+    DoubleGrid,
     UnknownDataType,
     None
 } DataType;

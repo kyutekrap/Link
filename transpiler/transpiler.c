@@ -927,7 +927,7 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                         fputs("\n", out_file);
                     }
                     ErrorCode err_cd = analyze_free_line_text(fline, out_file, summary.debug, import_dict, summary.identifier_type, summary.name, *params);
-                    if (err_cd != NO_ERROR) {
+                    if (err_cd != NO_ERROR && err_cd != UNKNOWN_FUNCTION) {
                         syslogger(filename, fline_number, err_cd);
                         goto cleanup;
                     }
@@ -1191,139 +1191,8 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                     }
                     else if (dtype == Map)
                     {
-                        char *vname = trim(mlist.data[0]);
-                        if (int_map_get(*params, vname) != NULL) {
-                            syslogger(filename, fline_number, PREDEFINED_VARIABLE);
-                            goto cleanup;
-                        }
-
-                        StrList map_args = parse_map(mlist.data[1]);
-                        if (map_args.count == 0) {
-                            syslogger(filename, fline_number, UNKNOWN_DATATYPE);
-                            goto cleanup;
-                        }
-
-                        DataType dtype = get_dtype(map_args.data[0]);
-                        if (dtype == UnknownDataType) {
-                            int *_dtype = int_map_get(*params, map_args.data[0]);
-                            if (_dtype == NULL || *_dtype != StringList) {
-                                syslogger(filename, fline_number, ILLEGAL_DATATYPE);
-                                goto cleanup;
-                            }
-
-                            int *size = int_map_get(*paramSize, map_args.data[0]);
-                            int line_len = snprintf(NULL, 0, "const void *%s[2][%d];\n", vname, *size);
-                            char *buffer = malloc(line_len + 1);
-                            if (!buffer) {
-                                syslogger(filename, fline_number, C_COMPILE_ERROR);
-                                goto cleanup;
-                            }
-
-                            sprintf(buffer, "const void *%s[2][%d];\n", vname, *size);
-                            global_script = join_str(global_script, buffer);
-
-                            line_len = snprintf(NULL, 0, "%s[0] = %s;\n", vname, map_args.data[0]);
-                            buffer = realloc(buffer, line_len + 1);
-                            if (!buffer) {
-                                syslogger(filename, fline_number, C_COMPILE_ERROR);
-                                goto cleanup;
-                            }
-                            
-                            sprintf(buffer, "%s[0] = %s;\n", vname, map_args.data[0]);
-                            global_script = join_str(global_script, buffer);
-                            free(buffer);
-                        } else if (dtype == List) {
-                            DataType ltype = get_ltype(map_args.data[0]);
-                            if (ltype != String) {
-                                syslogger(filename, fline_number, ILLEGAL_DATATYPE);
-                                goto cleanup;
-                            }
-
-                            StrList elements1 = str2list(substr(map_args.data[0], 1, strlen(map_args.data[0]) - 2));
-
-                            int line_len = snprintf(NULL, 0, "const void *%s[2][%d];\n", vname, elements1.count);
-                            char *buffer = malloc(line_len + 1);
-                            if (!buffer) {
-                                syslogger(filename, fline_number, C_COMPILE_ERROR);
-                                goto cleanup;
-                            }
-
-                            sprintf(buffer, "const void *%s[2][%d];\n", vname, elements1.count);
-                            global_script = join_str(global_script, buffer);
-
-                            for (int i = 0; i < elements1.count; i++) {
-                                for (int j = 0; j < elements1.count; j++) {
-                                    if (i == j) continue;
-                                    if (strcmp(elements1.data[i], elements1.data[j]) == 0) {
-                                        syslogger(filename, fline_number, REPEATED_KEY);
-                                        goto cleanup;
-                                    }
-                                }
-                            }
-
-                            for (int i = 0; i < elements1.count; i++) {
-                                line_len = snprintf(NULL, 0, "%s[0][%d] = %s;\n", vname, i, elements1.data[i]);
-                                buffer = realloc(buffer, line_len + 1);
-                                if (!buffer) {
-                                    syslogger(filename, fline_number, C_COMPILE_ERROR);
-                                    goto cleanup;
-                                }
-                                
-                                sprintf(buffer, "%s[0][%d] = %s;\n", vname, i, elements1.data[i]);
-                                global_script = join_str(global_script, buffer);
-                            }
-
-                            free(buffer);
-                        } else {
-                            syslogger(filename, fline_number, ILLEGAL_DATATYPE);
-                            goto cleanup;
-                        }
-
-                        dtype = get_dtype(map_args.data[1]);
-                        if (dtype == UnknownDataType) {
-                            int *_dtype = int_map_get(*params, map_args.data[1]);
-                            if (_dtype == NULL || (*_dtype != StringList && *_dtype != IntegerList && *_dtype != DoubleList)) {
-                                syslogger(filename, fline_number, ILLEGAL_DATATYPE);
-                                goto cleanup;
-                            }
-                            
-                            int line_len = snprintf(NULL, 0, "%s[1] = %s;\n", vname, map_args.data[1]);
-                            char *buffer = malloc(line_len + 1);
-                            if (!buffer) {
-                                syslogger(filename, fline_number, C_COMPILE_ERROR);
-                                goto cleanup;
-                            }
-                            
-                            sprintf(buffer, "%s[1] = %s;\n", vname, map_args.data[1]);
-                            global_script = join_str(global_script, buffer);
-                            free(buffer);
-                        } else if (dtype == List) {
-                            dtype = get_ltype(map_args.data[1]);
-                            if (dtype == UnknownDataType) {
-                                syslogger(filename, fline_number, ILLEGAL_DATATYPE);
-                                goto cleanup;
-                            }
-
-                            StrList elements2 = str2list(substr(map_args.data[1], 1, strlen(map_args.data[1]) - 2));
-                            char *buffer = NULL;
-                            for (int i = 0; i < elements2.count; i++) {
-                                int line_len = snprintf(NULL, 0, "%s[0][%d] = %s;\n", vname, i, elements2.data[i]);
-                                buffer = realloc(buffer, line_len + 1);
-                                if (!buffer) {
-                                    syslogger(filename, fline_number, C_COMPILE_ERROR);
-                                    goto cleanup;
-                                }
-                                
-                                sprintf(buffer, "%s[0][%d] = %s;\n", vname, i, elements2.data[i]);
-                                global_script = join_str(global_script, buffer);
-                            }
-                            free(buffer);
-                        } else {
-                            syslogger(filename, fline_number, ILLEGAL_DATATYPE);
-                            goto cleanup;
-                        }
-
-                        *params = int_map_set(*params, vname, dtype);
+                        syslogger(filename, fline_number, UNKNOWN_DATATYPE);
+                        goto cleanup;
                     }
                 }
                 else if (property_obj.property_type == UnknownProperty) {
