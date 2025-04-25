@@ -1091,102 +1091,178 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                             goto cleanup;
                         }
 
-                        DataType ltype = get_ltype(mlist.data[1]);
-                        if (ltype == String) {
-                            StrList elements = str2list(substr(mlist.data[1], 1, strlen(mlist.data[1])-2));
-                            
-                            int line_len = snprintf(NULL, 0, "const char *%s[] = {", vname);
-                            for (int i = 0; i < elements.count; i++) {
-                                line_len += strlen(elements.data[i]) + 4;
-                            }
-                            line_len += 4;
-                            
-                            char *buffer = malloc(line_len);
-                            if (!buffer) {
-                                syslogger(filename, fline_number, C_COMPILE_ERROR);
+                        char *data_trimmed = trim(mlist.data[1]);
+                        char *data = substr(data_trimmed, 1, strlen(data_trimmed)-2);
+                        int data_size = strlen(data);
+
+                        if (data_size > 3 && data[0] == '[' && data[data_size - 1] == ']')
+                        {
+                            IntList sbrackets = char_index(data, '[');
+                            IntList ebrackets = char_index(data, ']');
+                            if (sbrackets.count != ebrackets.count) {
+                                syslogger(filename, fline_number, UNKNOWN_DATATYPE);
                                 goto cleanup;
                             }
-                            
-                            sprintf(buffer, "const char *%s[] = {", vname);
-                            for (int i = 0; i < elements.count; i++) {
-                                strcat(buffer, elements.data[i]);
-                                if (i < elements.count - 1)
-                                    strcat(buffer, ", ");
-                            }
-                            strcat(buffer, "};\n");
-                            
-                            global_script = join_str(global_script, buffer);
-                            free(buffer);
 
-                            *params = int_map_set(*params, vname, StringList);
-                            *paramSize = int_map_set(*paramSize, vname, elements.count);
-                            free(vname);
-                        }
-                        else if (ltype == Integer) {
-                            StrList elements = str2list(substr(mlist.data[1], 1, strlen(mlist.data[1])-2));
+                            int count = -1;
+                            DataType type = Integer;
+                            int line2_len;
+                            char *buffer2 = NULL;
+                            for (int i=0; i<sbrackets.count; i++) {
+                                char *substring = substr(data, *sbrackets.data[i]+1, *ebrackets.data[i] - *sbrackets.data[i] - 1);
+                                type = get_ltype(substring);
+                                if (type != Integer && type != Double)
+                                {
+                                    syslogger(filename, fline_number, UNKNOWN_DATATYPE);
+                                    goto cleanup;
+                                }
+                                else
+                                {
+                                    StrList str_list = str2list(substring);
+                                    if (count == -1) {
+                                        count = str_list.count;
 
-                            int line_len = snprintf(NULL, 0, "const int %s[] = {", vname);
-                            for (int i = 0; i < elements.count; i++) {
-                                line_len += strlen(elements.data[i]) + 2;
-                            }
-                            line_len += 4;
-                            
-                            char *buffer = malloc(line_len);
-                            if (!buffer) {
-                                syslogger(filename, fline_number, C_COMPILE_ERROR);
-                                goto cleanup;
-                            }
-                            
-                            sprintf(buffer, "const int %s[] = {", vname);
-                            for (int i = 0; i < elements.count; i++) {
-                                strcat(buffer, elements.data[i]);
-                                if (i < elements.count - 1)
-                                    strcat(buffer, ", ");
-                            }
-                            strcat(buffer, "};\n");
-                            
-                            global_script = join_str(global_script, buffer);
-                            free(buffer);
+                                        char *format = (type == Integer) ? "const int %s[%d][%d];\n" : "const double %s[%d][%d];\n";
+                                        int line1_len = snprintf(NULL, 0, format, vname, sbrackets.count, count);
+                                        char *buffer = malloc(line1_len + 1);
+                                        if (!buffer) {
+                                            clear_str_list(str_list);
+                                            syslogger(filename, fline_number, C_COMPILE_ERROR);
+                                            goto cleanup;
+                                        }
+                                        sprintf(buffer, format, vname, sbrackets.count, count);
+                                        global_script = join_str(global_script, buffer);
+                                    } else if (count != str_list.count) {
+                                        clear_str_list(str_list);
+                                        syslogger(filename, fline_number, UNMATCHED_ELEMENTS);
+                                        goto cleanup;
+                                    }
 
-                            *params = int_map_set(*params, vname, IntegerList);
-                            *paramSize = int_map_set(*paramSize, vname, elements.count);
-                            free(vname);
-                        }
-                        else if (ltype == Double) {
-                            StrList elements = str2list(substr(mlist.data[1], 1, strlen(mlist.data[1])-2));
-
-                            int line_len = snprintf(NULL, 0, "const double %s[] = {", vname);
-                            for (int i = 0; i < elements.count; i++) {
-                                line_len += strlen(elements.data[i]) + 2;
+                                    line2_len = snprintf(NULL, 0, "%s[%d] = {", vname, i);
+                                    for (int j = 0; j < str_list.count; j++) {
+                                        line2_len += strlen(str_list.data[j]) + 2;
+                                    }
+                                    line2_len += 5;
+                                    
+                                    buffer2 = realloc(buffer2, line2_len);
+                                    if (!buffer2) {
+                                        clear_str_list(str_list);
+                                        syslogger(filename, fline_number, UNMATCHED_ELEMENTS);
+                                        goto cleanup;
+                                    }
+                                    sprintf(buffer2, "%s[%d] = {", vname, i);
+                                    for (int j = 0; j < str_list.count; j++) {
+                                        strcat(buffer2, str_list.data[j]);
+                                        if (j < str_list.count - 1)
+                                            strcat(buffer2, ", ");
+                                    }
+                                    strcat(buffer2, "};\n");
+                                    global_script = join_str(global_script, buffer2);
+                                }
                             }
-                            line_len += 4;
-                            
-                            char *buffer = malloc(line_len);
-                            if (!buffer) {
-                                syslogger(filename, fline_number, C_COMPILE_ERROR);
-                                goto cleanup;
-                            }
-                            
-                            sprintf(buffer, "const double %s[] = {", vname);
-                            for (int i = 0; i < elements.count; i++) {
-                                strcat(buffer, elements.data[i]);
-                                if (i < elements.count - 1)
-                                    strcat(buffer, ", ");
-                            }
-                            strcat(buffer, "};\n");
-                            
-                            global_script = join_str(global_script, buffer);
-                            free(buffer);
-
-                            *params = int_map_set(*params, vname, DoubleList);
-                            *paramSize = int_map_set(*paramSize, vname, elements.count);
-                            free(vname);
+                            free(buffer2);
                         }
                         else
                         {
-                            syslogger(filename, fline_number, UNKNOWN_DATATYPE);
-                            free(vname);
-                            goto cleanup;
+                            DataType ltype = get_ltype(data);
+                            if (ltype == String) {
+                                StrList elements = str2list(data);
+                                
+                                int line_len = snprintf(NULL, 0, "const char *%s[] = {", vname);
+                                for (int i = 0; i < elements.count; i++) {
+                                    line_len += strlen(elements.data[i]) + 4;
+                                }
+                                line_len += 4;
+                                
+                                char *buffer = malloc(line_len);
+                                if (!buffer) {
+                                    syslogger(filename, fline_number, C_COMPILE_ERROR);
+                                    goto cleanup;
+                                }
+                                
+                                sprintf(buffer, "const char *%s[] = {", vname);
+                                for (int i = 0; i < elements.count; i++) {
+                                    strcat(buffer, elements.data[i]);
+                                    if (i < elements.count - 1)
+                                        strcat(buffer, ", ");
+                                }
+                                strcat(buffer, "};\n");
+                                
+                                global_script = join_str(global_script, buffer);
+                                free(buffer);
+
+                                *params = int_map_set(*params, vname, StringList);
+                                *paramSize = int_map_set(*paramSize, vname, elements.count);
+                                free(vname);
+                            }
+                            else if (ltype == Integer)
+                            {
+                                StrList elements = str2list(data);
+
+                                int line_len = snprintf(NULL, 0, "const int %s[] = {", vname);
+                                for (int i = 0; i < elements.count; i++) {
+                                    line_len += strlen(elements.data[i]) + 2;
+                                }
+                                line_len += 4;
+                                
+                                char *buffer = malloc(line_len);
+                                if (!buffer) {
+                                    syslogger(filename, fline_number, C_COMPILE_ERROR);
+                                    goto cleanup;
+                                }
+                                
+                                sprintf(buffer, "const int %s[] = {", vname);
+                                for (int i = 0; i < elements.count; i++) {
+                                    strcat(buffer, elements.data[i]);
+                                    if (i < elements.count - 1)
+                                        strcat(buffer, ", ");
+                                }
+                                strcat(buffer, "};\n");
+                                
+                                global_script = join_str(global_script, buffer);
+                                free(buffer);
+
+                                *params = int_map_set(*params, vname, IntegerList);
+                                *paramSize = int_map_set(*paramSize, vname, elements.count);
+                                free(vname);
+                            }
+                            else if (ltype == Double)
+                            {
+                                StrList elements = str2list(data);
+
+                                int line_len = snprintf(NULL, 0, "const double %s[] = {", vname);
+                                for (int i = 0; i < elements.count; i++) {
+                                    line_len += strlen(elements.data[i]) + 2;
+                                }
+                                line_len += 4;
+                                
+                                char *buffer = malloc(line_len);
+                                if (!buffer) {
+                                    syslogger(filename, fline_number, C_COMPILE_ERROR);
+                                    goto cleanup;
+                                }
+                                
+                                sprintf(buffer, "const double %s[] = {", vname);
+                                for (int i = 0; i < elements.count; i++) {
+                                    strcat(buffer, elements.data[i]);
+                                    if (i < elements.count - 1)
+                                        strcat(buffer, ", ");
+                                }
+                                strcat(buffer, "};\n");
+                                
+                                global_script = join_str(global_script, buffer);
+                                free(buffer);
+
+                                *params = int_map_set(*params, vname, DoubleList);
+                                *paramSize = int_map_set(*paramSize, vname, elements.count);
+                                free(vname);
+                            }
+                            else
+                            {
+                                syslogger(filename, fline_number, UNKNOWN_DATATYPE);
+                                free(vname);
+                                goto cleanup;
+                            }
                         }
                     }
                     else if (dtype == Map)

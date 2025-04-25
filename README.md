@@ -75,6 +75,8 @@ To create a lightweight, utility-focused language that blends the **simplicity o
 - String List
 - Integer List
 - Double List
+- Integer Grid
+- Double Grid
 
 ---
 

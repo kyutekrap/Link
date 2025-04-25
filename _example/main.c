@@ -7,6 +7,13 @@ const char A[] = "Hello";
 const int AB = -123;
 const char *ABC[] = {"A", "B", "C"};
 const double ABCD[] = {1.1, 2.2, 3.3};
+const int Grid1[3][3];
+Grid1[0] = {1, 2, 3};
+Grid1[1] = {1, 2, 3};
+Grid1[2] = {1, 2, 3};
+const double Grid2[2][3];
+Grid2[0] = {1.1, 2.2, 3.3};
+Grid2[1] = {1.1, 2.2, 3.3};
 
 const int Data1[] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
 
