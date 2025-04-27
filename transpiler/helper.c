@@ -32,6 +32,8 @@ char *error_code2str(ErrorCode error_code) {
             return "REPEATED_KEY";
         case UNMATCHED_ELEMENTS:
             return "UNMATCHED_ELEMENTS";
+        case UNMATCHED_DATATYPE:
+            return "UNMATCHED_DATATYPE";
     }
     return strdup("");
 }

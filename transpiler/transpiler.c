@@ -1080,7 +1080,7 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                         global_script = join_str(global_script, buffer1);
                         free(buffer1);
 
-                        *params = int_map_set(*params, vname, Integer);
+                        *params = int_map_set(*params, vname, Double);
                         free(vname);
                     }
                     else if (dtype == List)
@@ -1093,177 +1093,353 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
 
                         char *data_trimmed = trim(mlist.data[1]);
                         char *data = substr(data_trimmed, 1, strlen(data_trimmed)-2);
-                        int data_size = strlen(data);
+                        IntList tokens = char_index_ignore(data, ',');
+                        if (tokens.count == 0) {
+                            free(vname);
+                            syslogger(filename, fline_number, UNKNOWN_DATATYPE);
+                            goto cleanup;
+                        }
 
-                        if (data_size > 3 && data[0] == '[' && data[data_size - 1] == ']')
-                        {
-                            IntList sbrackets = char_index(data, '[');
-                            IntList ebrackets = char_index(data, ']');
-                            if (sbrackets.count != ebrackets.count) {
-                                syslogger(filename, fline_number, UNKNOWN_DATATYPE);
-                                goto cleanup;
-                            }
-
-                            int count = -1;
-                            DataType type = Integer;
-                            int line2_len;
-                            char *buffer2 = NULL;
-                            for (int i=0; i<sbrackets.count; i++) {
-                                char *substring = substr(data, *sbrackets.data[i]+1, *ebrackets.data[i] - *sbrackets.data[i] - 1);
-                                type = get_ltype(substring);
-                                if (type != Integer && type != Double)
-                                {
-                                    syslogger(filename, fline_number, UNKNOWN_DATATYPE);
-                                    goto cleanup;
-                                }
-                                else
-                                {
-                                    StrList str_list = str2list(substring);
-                                    if (count == -1) {
-                                        count = str_list.count;
-
-                                        char *format = (type == Integer) ? "const int %s[%d][%d];\n" : "const double %s[%d][%d];\n";
-                                        int line1_len = snprintf(NULL, 0, format, vname, sbrackets.count, count);
-                                        char *buffer = malloc(line1_len + 1);
-                                        if (!buffer) {
-                                            clear_str_list(str_list);
-                                            syslogger(filename, fline_number, C_COMPILE_ERROR);
+                        YesNo is_grid = N;
+                        DataType type = Integer;
+                        int count;
+                        for (int i=0; i<=tokens.count; i++) {
+                            if (i == 0) {
+                                char *token = trim(substr(data, i, *tokens.data[i]));
+                                if (is_integer(token) == Y) {
+                                    int line1_len = snprintf(NULL, 0, "const int %s[%d] = {%s", vname, tokens.count, token);
+                                    char *buffer1 = malloc(line1_len + 1);
+                                    sprintf(buffer1, "const int %s[%d] = {%s", vname, tokens.count, token);
+                                    global_script = join_str(global_script, buffer1);
+                                    free(buffer1);
+                                    *params = int_map_set(*params, vname, IntegerList);
+                                    *paramSize = int_map_set(*params, vname, tokens.count);
+                                } else if (is_double(token) == Y) {
+                                    type = Double;
+                                    int line1_len = snprintf(NULL, 0, "const double %s[%d] = {%s", vname, tokens.count, token);
+                                    char *buffer1 = malloc(line1_len + 1);
+                                    sprintf(buffer1, "const double %s[%d] = {%s", vname, tokens.count, token);
+                                    global_script = join_str(global_script, buffer1);
+                                    free(buffer1);
+                                    *params = int_map_set(*params, vname, DoubleList);
+                                    *paramSize = int_map_set(*params, vname, tokens.count);
+                                } else {
+                                    int temp = strlen(token);
+                                    if (temp > 1 && token[0] == '"' && token[temp-1] == '"') {
+                                        type = String;
+                                        int line1_len = snprintf(NULL, 0, "const char *%s[%d] = {%s", vname, tokens.count, token);
+                                        char *buffer1 = malloc(line1_len + 1);
+                                        sprintf(buffer1, "const char *%s[%d] = {%s", vname, tokens.count, token);
+                                        global_script = join_str(global_script, buffer1);
+                                        free(buffer1);
+                                        *params = int_map_set(*params, vname, StringList);
+                                        *paramSize = int_map_set(*params, vname, tokens.count);
+                                    } else if (temp > 1 && token[0] == '[' && token[temp-1] == ']') {
+                                        is_grid = Y;
+                                        char *_token = substr(token, 1, temp-2);
+                                        IntList elements = char_index(_token, ',');
+                                        if (elements.count == 0) {
+                                            free(vname);
+                                            clear_int_list(tokens);
+                                            clear_int_list(elements);
+                                            syslogger(filename, fline_number, UNKNOWN_DATATYPE);
                                             goto cleanup;
                                         }
-                                        sprintf(buffer, format, vname, sbrackets.count, count);
-                                        global_script = join_str(global_script, buffer);
-                                    } else if (count != str_list.count) {
-                                        clear_str_list(str_list);
-                                        syslogger(filename, fline_number, UNMATCHED_ELEMENTS);
-                                        goto cleanup;
+                                        count = elements.count;
+                                        for (int j=0; j<=elements.count; j++) {
+                                            if (j == 0) {
+                                                char *element = trim(substr(_token, 0, *elements.data[j]));
+                                                if (is_integer(element) == Y) {
+                                                    int line1_len = snprintf(NULL, 0, "const int %s[%d][%d] = {\n\t{%s", vname, tokens.count, count, element);
+                                                    char *buffer1 = malloc(line1_len + 1);
+                                                    sprintf(buffer1, "const int %s[%d][%d] = {\n\t{%s", vname, tokens.count, count, element);
+                                                    global_script = join_str(global_script, buffer1);
+                                                    free(buffer1);
+                                                    *params = int_map_set(*params, vname, IntegerGrid);
+                                                    *paramSize = int_map_set(*params, vname, tokens.count);
+                                                } else if (is_double(element) == Y) {
+                                                    type = Double;
+                                                    int line1_len = snprintf(NULL, 0, "const double %s[%d][%d] = {\n\t{%s", vname, tokens.count, count, element);
+                                                    char *buffer1 = malloc(line1_len + 1);
+                                                    sprintf(buffer1, "const double %s[%d][%d] = {\n\t{%s", vname, tokens.count, count, element);
+                                                    global_script = join_str(global_script, buffer1);
+                                                    free(buffer1);
+                                                    *params = int_map_set(*params, vname, DoubleGrid);
+                                                    *paramSize = int_map_set(*params, vname, tokens.count);
+                                                } else {
+                                                    free(vname);
+                                                    clear_int_list(tokens);
+                                                    clear_int_list(elements);
+                                                    syslogger(filename, fline_number, UNKNOWN_DATATYPE);
+                                                    goto cleanup;
+                                                }
+                                            } else if (j < elements.count) {
+                                                char *element = trim(substr(_token, *elements.data[j-1] + 1, *elements.data[j] - *elements.data[j-1] - 1));
+                                                if (type == Integer && is_integer(element) == N) {
+                                                    free(vname);
+                                                    clear_int_list(tokens);
+                                                    clear_int_list(elements);
+                                                    syslogger(filename, fline_number, UNMATCHED_DATATYPE);
+                                                    goto cleanup;
+                                                } else if (type == Double && is_double(element) == N) {
+                                                    free(vname);
+                                                    clear_int_list(tokens);
+                                                    clear_int_list(elements);
+                                                    syslogger(filename, fline_number, UNMATCHED_DATATYPE);
+                                                    goto cleanup;
+                                                } else {
+                                                    int line1_len = snprintf(NULL, 0, ", %s", element);
+                                                    char *buffer1 = malloc(line1_len + 1);
+                                                    sprintf(buffer1, ", %s", element);
+                                                    global_script = join_str(global_script, buffer1);
+                                                    free(buffer1);
+                                                }
+                                            } else {
+                                                char *element = trim(substr(_token, *elements.data[j-1] + 1, strlen(_token) - *elements.data[j-1] - 1));
+                                                if (type == Integer && is_integer(element) == N) {
+                                                    free(vname);
+                                                    clear_int_list(tokens);
+                                                    clear_int_list(elements);
+                                                    syslogger(filename, fline_number, UNMATCHED_DATATYPE);
+                                                    goto cleanup;
+                                                } else if (type == Double && is_double(element) == N) {
+                                                    free(vname);
+                                                    clear_int_list(tokens);
+                                                    clear_int_list(elements);
+                                                    syslogger(filename, fline_number, UNMATCHED_DATATYPE);
+                                                    goto cleanup;
+                                                } else {
+                                                    int line1_len = snprintf(NULL, 0, ", %s", element);
+                                                    char *buffer1 = malloc(line1_len + 1);
+                                                    sprintf(buffer1, ", %s", element);
+                                                    global_script = join_str(global_script, buffer1);
+                                                    free(buffer1);
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        int *_count = int_map_get(*paramSize, token);
+                                        if (_count != NULL) {
+                                            count = *_count;
+                                            is_grid = Y;
+                                        }
+                                        int *temp = int_map_get(*params, token);
+                                        if (temp == NULL) {
+                                            free(vname);
+                                            clear_int_list(tokens);
+                                            syslogger(filename, fline_number, UNDEFINED_VARIABLE);
+                                            goto cleanup;
+                                        } else if (*temp == String) {
+                                            type = String;
+                                            int line1_len = snprintf(NULL, 0, "const char *%s[%d] = {%s};\n", vname, tokens.count, token);
+                                            char *buffer1 = malloc(line1_len + 1);
+                                            sprintf(buffer1, "const char *%s[%d] = {%s};\n", vname, tokens.count, token);
+                                            global_script = join_str(global_script, buffer1);
+                                            free(buffer1);
+                                        } else if (*temp == Integer) {
+                                            int line1_len = snprintf(NULL, 0, "const int %s[%d] = {%s};\n", vname, tokens.count, token);
+                                            char *buffer1 = malloc(line1_len + 1);
+                                            sprintf(buffer1, "const int %s[%d] = {%s};\n", vname, tokens.count, token);
+                                            global_script = join_str(global_script, buffer1);
+                                            free(buffer1);
+                                        } else if (*temp == Double) {
+                                            type = Double;
+                                            int line1_len = snprintf(NULL, 0, "const double %s[%d] = {%s};\n", vname, tokens.count, token);
+                                            char *buffer1 = malloc(line1_len + 1);
+                                            sprintf(buffer1, "const double %s[%d] = {%s};\n", vname, tokens.count, token);
+                                            global_script = join_str(global_script, buffer1);
+                                            free(buffer1);
+                                        } else if (*temp == IntegerList) {
+                                            is_grid = Y;
+                                            type = IntegerList;
+                                            int line1_len = snprintf(NULL, 0, "const int %s[%d][%d] = {\n\t{%s", vname, tokens.count, count, token);
+                                            char *buffer1 = malloc(line1_len + 1);
+                                            sprintf(buffer1, "const int %s[%d][%d] = {\n\t{%s", vname, tokens.count, count, token);
+                                            global_script = join_str(global_script, buffer1);
+                                            free(buffer1);
+                                        } else if (*temp == DoubleList) {
+                                            is_grid = Y;
+                                            type = DoubleList;
+                                            int line1_len = snprintf(NULL, 0, "const double %s[%d][%d] = {\n\t{%s", vname, tokens.count, count, token);
+                                            char *buffer1 = malloc(line1_len + 1);
+                                            sprintf(buffer1, "const double %s[%d][%d] = {\n\t{%s", vname, tokens.count, count, token);
+                                            global_script = join_str(global_script, buffer1);
+                                            free(buffer1);
+                                        } else {
+                                            free(vname);
+                                            clear_int_list(tokens);
+                                            syslogger(filename, fline_number, UNKNOWN_DATATYPE);
+                                            goto cleanup;
+                                        }
                                     }
-
-                                    line2_len = snprintf(NULL, 0, "%s[%d] = {", vname, i);
-                                    for (int j = 0; j < str_list.count; j++) {
-                                        line2_len += strlen(str_list.data[j]) + 2;
+                                }
+                            } else {
+                                char *token = (i < tokens.count)
+                                    ? trim(substr(data, *tokens.data[i-1] + 1, *tokens.data[i] - *tokens.data[i-1] - 1))
+                                    : trim(substr(data, *tokens.data[i-1] + 1, strlen(data) - *tokens.data[i-1] - 1));
+                                if (is_grid == N) {
+                                    if (type == Integer) {
+                                        if (is_integer(token) == N) {
+                                            free(vname);
+                                            clear_int_list(tokens);
+                                            syslogger(filename, fline_number, UNMATCHED_DATATYPE);
+                                            goto cleanup;
+                                        } else {
+                                            int line1_len = snprintf(NULL, 0, ", %s", token);
+                                            char *buffer1 = malloc(line1_len + 1);
+                                            sprintf(buffer1, ", %s", token);
+                                            global_script = join_str(global_script, buffer1);
+                                            free(buffer1);
+                                        }
+                                    } else if (type == Double) {
+                                        if (is_double(token) == N) {
+                                            free(vname);
+                                            clear_int_list(tokens);
+                                            syslogger(filename, fline_number, UNMATCHED_DATATYPE);
+                                            goto cleanup;
+                                        } else {
+                                            int line1_len = snprintf(NULL, 0, ", %s", token);
+                                            char *buffer1 = malloc(line1_len + 1);
+                                            sprintf(buffer1, ", %s", token);
+                                            global_script = join_str(global_script, buffer1);
+                                            free(buffer1);
+                                        }
+                                    } else {
+                                        int temp = strlen(token);
+                                        if (!(temp > 1 && token[0] == '"' && token[temp-1] == '"')) {
+                                            free(vname);
+                                            clear_int_list(tokens);
+                                            syslogger(filename, fline_number, UNMATCHED_DATATYPE);
+                                            goto cleanup;
+                                        } else {
+                                            int line1_len = snprintf(NULL, 0, ", %s", token);
+                                            char *buffer1 = malloc(line1_len + 1);
+                                            sprintf(buffer1, ", %s", token);
+                                            global_script = join_str(global_script, buffer1);
+                                            free(buffer1);
+                                        }
                                     }
-                                    line2_len += 5;
-                                    
-                                    buffer2 = realloc(buffer2, line2_len);
-                                    if (!buffer2) {
-                                        clear_str_list(str_list);
-                                        syslogger(filename, fline_number, UNMATCHED_ELEMENTS);
-                                        goto cleanup;
+                                } else {
+                                    int temp = strlen(token);
+                                    if (temp > 1 && token[0] == '[' && token[temp-1] == ']') {
+                                        char *_token = substr(token, 1, temp-2);
+                                        IntList elements = char_index(_token, ',');
+                                        if (elements.count == 0) {
+                                            free(vname);
+                                            clear_int_list(tokens);
+                                            clear_int_list(elements);
+                                            syslogger(filename, fline_number, UNKNOWN_DATATYPE);
+                                            goto cleanup;
+                                        }
+                                        if (count != elements.count) {
+                                            free(vname);
+                                            clear_int_list(tokens);
+                                            clear_int_list(elements);
+                                            syslogger(filename, fline_number, UNMATCHED_ELEMENTS);
+                                            goto cleanup;
+                                        }
+                                        for (int j=0; j<=elements.count; j++) {
+                                            if (j == 0) {
+                                                char *element = trim(substr(_token, 0, *elements.data[j]));
+                                                if (type == Integer) {
+                                                    if (is_integer(element) == N) {
+                                                        free(vname);
+                                                        clear_int_list(tokens);
+                                                        clear_int_list(elements);
+                                                        syslogger(filename, fline_number, UNKNOWN_DATATYPE);
+                                                        goto cleanup;
+                                                    } else {
+                                                        int line1_len = snprintf(NULL, 0, "},\n\t{%s", element);
+                                                        char *buffer1 = malloc(line1_len + 1);
+                                                        sprintf(buffer1, "},\n\t{%s", element);
+                                                        global_script = join_str(global_script, buffer1);
+                                                        free(buffer1);
+                                                    }
+                                                } else if (type == Double) {
+                                                    if (is_double(element) == N) {
+                                                        free(vname);
+                                                        clear_int_list(tokens);
+                                                        clear_int_list(elements);
+                                                        syslogger(filename, fline_number, UNKNOWN_DATATYPE);
+                                                        goto cleanup;
+                                                    } else {
+                                                        int line1_len = snprintf(NULL, 0, "},\n\t{%s", element);
+                                                        char *buffer1 = malloc(line1_len + 1);
+                                                        sprintf(buffer1, "},\n\t{%s", element);
+                                                        global_script = join_str(global_script, buffer1);
+                                                        free(buffer1);
+                                                    }
+                                                }
+                                            } else {
+                                                char *element = (j < elements.count) ? trim(substr(_token, *elements.data[j-1] + 1, *elements.data[j] - *elements.data[j-1] - 1))
+                                                    : trim(substr(_token, *elements.data[j-1] + 1, strlen(_token) - *elements.data[j-1] - 1));
+                                                if (type == Integer) {
+                                                    if (is_integer(element) == N) {
+                                                        free(vname);
+                                                        clear_int_list(tokens);
+                                                        clear_int_list(elements);
+                                                        syslogger(filename, fline_number, UNKNOWN_DATATYPE);
+                                                        goto cleanup;
+                                                    } else {
+                                                        int line1_len = snprintf(NULL, 0, ", %s", element);
+                                                        char *buffer1 = malloc(line1_len + 1);
+                                                        sprintf(buffer1, ", %s", element);
+                                                        global_script = join_str(global_script, buffer1);
+                                                        free(buffer1);
+                                                    }
+                                                } else if (type == Double) {
+                                                    if (is_double(element) == N) {
+                                                        free(vname);
+                                                        clear_int_list(tokens);
+                                                        clear_int_list(elements);
+                                                        syslogger(filename, fline_number, UNKNOWN_DATATYPE);
+                                                        goto cleanup;
+                                                    } else {
+                                                        int line1_len = snprintf(NULL, 0, ", %s", element);
+                                                        char *buffer1 = malloc(line1_len + 1);
+                                                        sprintf(buffer1, ", %s", element);
+                                                        global_script = join_str(global_script, buffer1);
+                                                        free(buffer1);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        if (count != *int_map_get(*paramSize, token)) {
+                                            free(vname);
+                                            clear_int_list(tokens);
+                                            syslogger(filename, fline_number, UNMATCHED_ELEMENTS);
+                                            goto cleanup;
+                                        }
+                                        int *_temp = int_map_get(*params, token);
+                                        if (_temp == NULL) {
+                                            free(vname);
+                                            clear_int_list(tokens);
+                                            syslogger(filename, fline_number, UNDEFINED_VARIABLE);
+                                            goto cleanup;
+                                        } else if (type == Integer && *_temp != IntegerList) {
+                                            free(vname);
+                                            clear_int_list(tokens);
+                                            syslogger(filename, fline_number, UNMATCHED_DATATYPE);
+                                            goto cleanup;
+                                        } else if (type == Double && *_temp != DoubleList) {
+                                            free(vname);
+                                            clear_int_list(tokens);
+                                            syslogger(filename, fline_number, UNMATCHED_DATATYPE);
+                                            goto cleanup;
+                                        } else {
+                                            int line1_len = snprintf(NULL, 0, "},\n\t{%s", token);
+                                            char *buffer1 = malloc(line1_len + 1);
+                                            sprintf(buffer1, "},\n\t{%s", token);
+                                            global_script = join_str(global_script, buffer1);
+                                            free(buffer1);
+                                        }
                                     }
-                                    sprintf(buffer2, "%s[%d] = {", vname, i);
-                                    for (int j = 0; j < str_list.count; j++) {
-                                        strcat(buffer2, str_list.data[j]);
-                                        if (j < str_list.count - 1)
-                                            strcat(buffer2, ", ");
-                                    }
-                                    strcat(buffer2, "};\n");
-                                    global_script = join_str(global_script, buffer2);
                                 }
                             }
-                            free(buffer2);
                         }
-                        else
-                        {
-                            DataType ltype = get_ltype(data);
-                            if (ltype == String) {
-                                StrList elements = str2list(data);
-                                
-                                int line_len = snprintf(NULL, 0, "const char *%s[] = {", vname);
-                                for (int i = 0; i < elements.count; i++) {
-                                    line_len += strlen(elements.data[i]) + 4;
-                                }
-                                line_len += 4;
-                                
-                                char *buffer = malloc(line_len);
-                                if (!buffer) {
-                                    syslogger(filename, fline_number, C_COMPILE_ERROR);
-                                    goto cleanup;
-                                }
-                                
-                                sprintf(buffer, "const char *%s[] = {", vname);
-                                for (int i = 0; i < elements.count; i++) {
-                                    strcat(buffer, elements.data[i]);
-                                    if (i < elements.count - 1)
-                                        strcat(buffer, ", ");
-                                }
-                                strcat(buffer, "};\n");
-                                
-                                global_script = join_str(global_script, buffer);
-                                free(buffer);
-
-                                *params = int_map_set(*params, vname, StringList);
-                                *paramSize = int_map_set(*paramSize, vname, elements.count);
-                                free(vname);
-                            }
-                            else if (ltype == Integer)
-                            {
-                                StrList elements = str2list(data);
-
-                                int line_len = snprintf(NULL, 0, "const int %s[] = {", vname);
-                                for (int i = 0; i < elements.count; i++) {
-                                    line_len += strlen(elements.data[i]) + 2;
-                                }
-                                line_len += 4;
-                                
-                                char *buffer = malloc(line_len);
-                                if (!buffer) {
-                                    syslogger(filename, fline_number, C_COMPILE_ERROR);
-                                    goto cleanup;
-                                }
-                                
-                                sprintf(buffer, "const int %s[] = {", vname);
-                                for (int i = 0; i < elements.count; i++) {
-                                    strcat(buffer, elements.data[i]);
-                                    if (i < elements.count - 1)
-                                        strcat(buffer, ", ");
-                                }
-                                strcat(buffer, "};\n");
-                                
-                                global_script = join_str(global_script, buffer);
-                                free(buffer);
-
-                                *params = int_map_set(*params, vname, IntegerList);
-                                *paramSize = int_map_set(*paramSize, vname, elements.count);
-                                free(vname);
-                            }
-                            else if (ltype == Double)
-                            {
-                                StrList elements = str2list(data);
-
-                                int line_len = snprintf(NULL, 0, "const double %s[] = {", vname);
-                                for (int i = 0; i < elements.count; i++) {
-                                    line_len += strlen(elements.data[i]) + 2;
-                                }
-                                line_len += 4;
-                                
-                                char *buffer = malloc(line_len);
-                                if (!buffer) {
-                                    syslogger(filename, fline_number, C_COMPILE_ERROR);
-                                    goto cleanup;
-                                }
-                                
-                                sprintf(buffer, "const double %s[] = {", vname);
-                                for (int i = 0; i < elements.count; i++) {
-                                    strcat(buffer, elements.data[i]);
-                                    if (i < elements.count - 1)
-                                        strcat(buffer, ", ");
-                                }
-                                strcat(buffer, "};\n");
-                                
-                                global_script = join_str(global_script, buffer);
-                                free(buffer);
-
-                                *params = int_map_set(*params, vname, DoubleList);
-                                *paramSize = int_map_set(*paramSize, vname, elements.count);
-                                free(vname);
-                            }
-                            else
-                            {
-                                syslogger(filename, fline_number, UNKNOWN_DATATYPE);
-                                free(vname);
-                                goto cleanup;
-                            }
-                        }
+                        char *format = (is_grid == Y) ? "}\n};\n" : "};\n";
+                        global_script = join_str(global_script, format);
                     }
                     else if (dtype == Map)
                     {

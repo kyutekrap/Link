@@ -17,7 +17,8 @@ typedef enum {
     INVALID_VARIABLE,
     ILLEGAL_DATATYPE,
     REPEATED_KEY,
-    UNMATCHED_ELEMENTS
+    UNMATCHED_ELEMENTS,
+    UNMATCHED_DATATYPE
 } ErrorCode;
 
 typedef enum {

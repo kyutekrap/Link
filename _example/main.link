@@ -10,8 +10,10 @@ multi-line comment
 @global(AB, -123)
 @global(ABC, ["A", "B", "C"])
 @global(ABCD, [1.1, 2.2, 3.3])
+@global(ABCDE, ABCD)
 @global(Grid1, [[1, 2, 3], [1, 2, 3], [1, 2, 3]])
-@global(Grid2, [[1.1, 2.2, 3.3], [1.1, 2.2, 3.3]])
+// @global(Grid2, [ABCD, ABCD, ABCD])
+// @global(Grid2, [[1.1, 2.2, 3.3], ABCD, ABCD])
 
 @import("./src/test.link")
 @import("./src/test2.link")
