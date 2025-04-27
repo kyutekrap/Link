@@ -13,7 +13,7 @@ multi-line comment
 @global(ABCDE, ABCD)
 @global(Grid1, [[1, 2, 3], [1, 2, 3], [1, 2, 3]])
 @global(Grid2, [ABCD, ABCD, ABCD])
-// @global(Grid2, [[1.1, 2.2, 3.3], ABCD, ABCD])
+@global(Grid3, [[1.1, 2.2, 3.3], ABCD, ABCD])
 
 @import("./src/test.link")
 @import("./src/test2.link")

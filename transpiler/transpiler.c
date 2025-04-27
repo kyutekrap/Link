@@ -840,7 +840,7 @@ ErrorCode analyze_free_line_text(char *fline, FILE *out_file, YesNo debug, StrMa
 
 // ===== MAIN (START)
 
-TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, IntMap *params, IntMap *paramSize) {
+TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, IntMap *params, IntMap *paramSize, IntMap *paramInnerSize) {
     TranspilerSummary summary = {NULL, {0, NULL}, debug, Flow};
 
     char *namespace = get_namespace(filename, origin);
@@ -991,7 +991,7 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
     
                             char *full_path_c = get_target_name(full_path);
                             if (access(full_path_c, F_OK) != 0) {
-                                TranspilerSummary func_summary = transpiler_main(full_path, origin, summary.debug, params, paramSize);
+                                TranspilerSummary func_summary = transpiler_main(full_path, origin, summary.debug, params, paramSize, paramInnerSize);
                                 if (summary.identifier_type == Flow && func_summary.identifier_type == Flow) {
                                     free(cwd);
                                     free(func_namespace);
@@ -1181,6 +1181,7 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                                     free(buffer1);
                                                     *params = int_map_set(*params, vname, IntegerGrid);
                                                     *paramSize = int_map_set(*paramSize, vname, tokens.count + 1);
+                                                    *paramInnerSize = int_map_set(*paramInnerSize, vname, count);
                                                 } else if (is_double(element) == Y) {
                                                     type = Double;
                                                     int line1_len = snprintf(NULL, 0, "const double %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, element);
@@ -1190,6 +1191,7 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                                     free(buffer1);
                                                     *params = int_map_set(*params, vname, DoubleGrid);
                                                     *paramSize = int_map_set(*paramSize, vname, tokens.count + 1);
+                                                    *paramInnerSize = int_map_set(*paramInnerSize, vname, count);
                                                 } else {
                                                     free(vname);
                                                     clear_int_list(tokens);
@@ -1479,6 +1481,80 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                         syslogger(filename, fline_number, UNKNOWN_DATATYPE);
                         goto cleanup;
                     }
+                    else
+                    {
+                        char *vname = trim(mlist.data[0]);
+                        if (int_map_get(*params, vname) != NULL) {
+                            syslogger(filename, fline_number, PREDEFINED_VARIABLE);
+                            goto cleanup;
+                        }
+
+                        int *type = int_map_get(*params, mlist.data[1]);
+                        if (type == NULL) {
+                            syslogger(filename, fline_number, UNKNOWN_DATATYPE);
+                            goto cleanup;
+                        }
+
+                        if (*type == String) {
+                            int line1_len = snprintf(NULL, 0, "const char *%s = strdup(%s);\n", vname, mlist.data[1]);
+                            char *buffer1 = malloc(line1_len + 1);
+                            sprintf(buffer1, "const char *%s = strdup(%s);\n", vname, mlist.data[1]);
+                            global_script = join_str(global_script, buffer1);
+                            free(buffer1);
+                        }
+                        else if (*type == Integer)
+                        {
+                            int line1_len = snprintf(NULL, 0, "const int %s = %s;\n", vname, mlist.data[1]);
+                            char *buffer1 = malloc(line1_len + 1);
+                            sprintf(buffer1, "const int %s = %s;\n", vname, mlist.data[1]);
+                            global_script = join_str(global_script, buffer1);
+                            free(buffer1);
+                        }
+                        else if (*type == Double) {
+                            int line1_len = snprintf(NULL, 0, "const double %s = %s;\n", vname, mlist.data[1]);
+                            char *buffer1 = malloc(line1_len + 1);
+                            sprintf(buffer1, "const double %s = %s;\n", vname, mlist.data[1]);
+                            global_script = join_str(global_script, buffer1);
+                            free(buffer1);
+                        } else if (*type == StringList) {
+                            int *size = int_map_get(*paramSize, mlist.data[1]);
+                            int line1_len = snprintf(NULL, 0, "const char *%s[%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, vname, mlist.data[1], mlist.data[1]);
+                            char *buffer1 = malloc(line1_len + 1);
+                            sprintf(buffer1, "const char *%s[%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, vname, mlist.data[1], mlist.data[1]);
+                            global_script = join_str(global_script, buffer1);
+                            free(buffer1);
+                        } else if (*type == IntegerList) {
+                            int *size = int_map_get(*paramSize, mlist.data[1]);
+                            int line1_len = snprintf(NULL, 0, "const int %s[%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, vname, mlist.data[1], mlist.data[1]);
+                            char *buffer1 = malloc(line1_len + 1);
+                            sprintf(buffer1, "const int %s[%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, vname, mlist.data[1], mlist.data[1]);
+                            global_script = join_str(global_script, buffer1);
+                            free(buffer1);
+                        } else if (*type == DoubleList) {
+                            int *size = int_map_get(*paramSize, mlist.data[1]);
+                            int line1_len = snprintf(NULL, 0, "const double %s[%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, vname, mlist.data[1], mlist.data[1]);
+                            char *buffer1 = malloc(line1_len + 1);
+                            sprintf(buffer1, "const double %s[%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, vname, mlist.data[1], mlist.data[1]);
+                            global_script = join_str(global_script, buffer1);
+                            free(buffer1);
+                        } else if (*type == IntegerGrid) {
+                            int *size = int_map_get(*paramSize, mlist.data[1]);
+                            int *innerSize = int_map_get(*paramInnerSize, mlist.data[1]);
+                            int line1_len = snprintf(NULL, 0, "const int %s[%d][%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, *innerSize, vname, mlist.data[1], mlist.data[1]);
+                            char *buffer1 = malloc(line1_len + 1);
+                            sprintf(buffer1, "const int %s[%d][%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, *innerSize, vname, mlist.data[1], mlist.data[1]);
+                            global_script = join_str(global_script, buffer1);
+                            free(buffer1);
+                        } else if (*type == DoubleGrid) {
+                            int *size = int_map_get(*paramSize, mlist.data[1]);
+                            int *innerSize = int_map_get(*paramInnerSize, mlist.data[1]);
+                            int line1_len = snprintf(NULL, 0, "const double %s[%d][%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, *innerSize, vname, mlist.data[1], mlist.data[1]);
+                            char *buffer1 = malloc(line1_len + 1);
+                            sprintf(buffer1, "const double %s[%d][%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, *innerSize, vname, mlist.data[1], mlist.data[1]);
+                            global_script = join_str(global_script, buffer1);
+                            free(buffer1);
+                        }
+                    }
                 }
                 else if (property_obj.property_type == UnknownProperty) {
                     syslogger(filename, fline_number, UNKNOWN_PROPERTY);
@@ -1555,7 +1631,8 @@ void transpiler(char *filename) {
 
     IntMap params = {0, {0, NULL}, {0, NULL}};
     IntMap paramSize = {0, {0, NULL}, {0, NULL}};
-    TranspilerSummary summary = transpiler_main(filename, cwd, N, &params, &paramSize);
+    IntMap paramInnerSize = {0, {0, NULL}, {0, NULL}};
+    TranspilerSummary summary = transpiler_main(filename, cwd, N, &params, &paramSize, &paramInnerSize);
     free(cwd);
     free(summary.name);
     summary.imports = clear_str_list(summary.imports);

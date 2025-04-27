@@ -7,6 +7,8 @@ const char A[] = "Hello";
 const double AB = -1.23;
 const char *ABC[3] = {"A", "B", "C"};
 const double ABCD[3] = {AB, 2.2, 3.3};
+const double ABCDE[3];
+memcpy(ABCDE, ABCD, sizeof(ABCD));
 const int Grid1[3][3] = {
 	{1, 2, 3},
 	{1, 2, 3},
@@ -14,6 +16,11 @@ const int Grid1[3][3] = {
 };
 const double Grid2[3][3] = {
 	{ABCD},
+	{ABCD},
+	{ABCD}
+};
+const double Grid3[3][3] = {
+	{1.1, 2.2, 3.3},
 	{ABCD},
 	{ABCD}
 };
