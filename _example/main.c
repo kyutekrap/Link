@@ -5,15 +5,20 @@
 
 const char A[] = "Hello";
 const double AB = -1.23;
-const char *ABC[2] = {"A", "B", "C"};
-const double ABCD[2] = {AB, 2.2, 3.3};
-const int Grid1[2][2] = {
+const char *ABC[3] = {"A", "B", "C"};
+const double ABCD[3] = {AB, 2.2, 3.3};
+const int Grid1[3][3] = {
 	{1, 2, 3},
 	{1, 2, 3},
 	{1, 2, 3}
 };
+const double Grid2[3][3] = {
+	{ABCD},
+	{ABCD},
+	{ABCD}
+};
 
-const int Data1[8] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+const int Data1[9] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
 
 void src_test2() {
 	clock_t __step_start__, __step_end__; __step_start__ = clock();

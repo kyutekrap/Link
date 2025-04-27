@@ -1131,33 +1131,33 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                             if (i == 0) {
                                 char *token = trim(substr(data, i, *tokens.data[i]));
                                 if (is_integer(token) == Y) {
-                                    int line1_len = snprintf(NULL, 0, "const int %s[%d] = {%s", vname, tokens.count, token);
+                                    int line1_len = snprintf(NULL, 0, "const int %s[%d] = {%s", vname, tokens.count + 1, token);
                                     char *buffer1 = malloc(line1_len + 1);
-                                    sprintf(buffer1, "const int %s[%d] = {%s", vname, tokens.count, token);
+                                    sprintf(buffer1, "const int %s[%d] = {%s", vname, tokens.count + 1, token);
                                     global_script = join_str(global_script, buffer1);
                                     free(buffer1);
                                     *params = int_map_set(*params, vname, IntegerList);
-                                    *paramSize = int_map_set(*params, vname, tokens.count);
+                                    *paramSize = int_map_set(*paramSize, vname, tokens.count + 1);
                                 } else if (is_double(token) == Y) {
                                     type = Double;
-                                    int line1_len = snprintf(NULL, 0, "const double %s[%d] = {%s", vname, tokens.count, token);
+                                    int line1_len = snprintf(NULL, 0, "const double %s[%d] = {%s", vname, tokens.count + 1, token);
                                     char *buffer1 = malloc(line1_len + 1);
-                                    sprintf(buffer1, "const double %s[%d] = {%s", vname, tokens.count, token);
+                                    sprintf(buffer1, "const double %s[%d] = {%s", vname, tokens.count + 1, token);
                                     global_script = join_str(global_script, buffer1);
                                     free(buffer1);
                                     *params = int_map_set(*params, vname, DoubleList);
-                                    *paramSize = int_map_set(*params, vname, tokens.count);
+                                    *paramSize = int_map_set(*paramSize, vname, tokens.count + 1);
                                 } else {
                                     int temp = strlen(token);
                                     if (temp > 1 && token[0] == '"' && token[temp-1] == '"') {
                                         type = String;
-                                        int line1_len = snprintf(NULL, 0, "const char *%s[%d] = {%s", vname, tokens.count, token);
+                                        int line1_len = snprintf(NULL, 0, "const char *%s[%d] = {%s", vname, tokens.count + 1, token);
                                         char *buffer1 = malloc(line1_len + 1);
-                                        sprintf(buffer1, "const char *%s[%d] = {%s", vname, tokens.count, token);
+                                        sprintf(buffer1, "const char *%s[%d] = {%s", vname, tokens.count + 1, token);
                                         global_script = join_str(global_script, buffer1);
                                         free(buffer1);
                                         *params = int_map_set(*params, vname, StringList);
-                                        *paramSize = int_map_set(*params, vname, tokens.count);
+                                        *paramSize = int_map_set(*paramSize, vname, tokens.count + 1);
                                     } else if (temp > 1 && token[0] == '[' && token[temp-1] == ']') {
                                         is_grid = Y;
                                         char *_token = substr(token, 1, temp-2);
@@ -1169,27 +1169,27 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                             syslogger(filename, fline_number, UNKNOWN_DATATYPE);
                                             goto cleanup;
                                         }
-                                        count = elements.count;
+                                        count = elements.count + 1;
                                         for (int j=0; j<=elements.count; j++) {
                                             if (j == 0) {
                                                 char *element = trim(substr(_token, 0, *elements.data[j]));
                                                 if (is_integer(element) == Y) {
-                                                    int line1_len = snprintf(NULL, 0, "const int %s[%d][%d] = {\n\t{%s", vname, tokens.count, count, element);
+                                                    int line1_len = snprintf(NULL, 0, "const int %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, element);
                                                     char *buffer1 = malloc(line1_len + 1);
-                                                    sprintf(buffer1, "const int %s[%d][%d] = {\n\t{%s", vname, tokens.count, count, element);
+                                                    sprintf(buffer1, "const int %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, element);
                                                     global_script = join_str(global_script, buffer1);
                                                     free(buffer1);
                                                     *params = int_map_set(*params, vname, IntegerGrid);
-                                                    *paramSize = int_map_set(*params, vname, tokens.count);
+                                                    *paramSize = int_map_set(*paramSize, vname, tokens.count + 1);
                                                 } else if (is_double(element) == Y) {
                                                     type = Double;
-                                                    int line1_len = snprintf(NULL, 0, "const double %s[%d][%d] = {\n\t{%s", vname, tokens.count, count, element);
+                                                    int line1_len = snprintf(NULL, 0, "const double %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, element);
                                                     char *buffer1 = malloc(line1_len + 1);
-                                                    sprintf(buffer1, "const double %s[%d][%d] = {\n\t{%s", vname, tokens.count, count, element);
+                                                    sprintf(buffer1, "const double %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, element);
                                                     global_script = join_str(global_script, buffer1);
                                                     free(buffer1);
                                                     *params = int_map_set(*params, vname, DoubleGrid);
-                                                    *paramSize = int_map_set(*params, vname, tokens.count);
+                                                    *paramSize = int_map_set(*paramSize, vname, tokens.count + 1);
                                                 } else {
                                                     free(vname);
                                                     clear_int_list(tokens);
@@ -1254,40 +1254,50 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                             goto cleanup;
                                         } else if (*temp == String) {
                                             type = String;
-                                            int line1_len = snprintf(NULL, 0, "const char *%s[%d] = {%s", vname, tokens.count, token);
+                                            int line1_len = snprintf(NULL, 0, "const char *%s[%d] = {%s", vname, tokens.count + 1, token);
                                             char *buffer1 = malloc(line1_len + 1);
-                                            sprintf(buffer1, "const char *%s[%d] = {%s", vname, tokens.count, token);
+                                            sprintf(buffer1, "const char *%s[%d] = {%s", vname, tokens.count + 1, token);
                                             global_script = join_str(global_script, buffer1);
                                             free(buffer1);
+                                            *params = int_map_set(*params, vname, StringList);
+                                            *paramSize = int_map_set(*paramSize, vname, tokens.count + 1);
                                         } else if (*temp == Integer) {
-                                            int line1_len = snprintf(NULL, 0, "const int %s[%d] = {%s", vname, tokens.count, token);
+                                            int line1_len = snprintf(NULL, 0, "const int %s[%d] = {%s", vname, tokens.count + 1, token);
                                             char *buffer1 = malloc(line1_len + 1);
-                                            sprintf(buffer1, "const int %s[%d] = {%s", vname, tokens.count, token);
+                                            sprintf(buffer1, "const int %s[%d] = {%s", vname, tokens.count + 1, token);
                                             global_script = join_str(global_script, buffer1);
                                             free(buffer1);
+                                            *params = int_map_set(*params, vname, IntegerList);
+                                            *paramSize = int_map_set(*paramSize, vname, tokens.count + 1);
                                         } else if (*temp == Double) {
                                             type = Double;
-                                            int line1_len = snprintf(NULL, 0, "const double %s[%d] = {%s", vname, tokens.count, token);
+                                            int line1_len = snprintf(NULL, 0, "const double %s[%d] = {%s", vname, tokens.count + 1, token);
                                             char *buffer1 = malloc(line1_len + 1);
-                                            sprintf(buffer1, "const double %s[%d] = {%s", vname, tokens.count, token);
+                                            sprintf(buffer1, "const double %s[%d] = {%s", vname, tokens.count + 1, token);
                                             global_script = join_str(global_script, buffer1);
                                             free(buffer1);
+                                            *params = int_map_set(*params, vname, DoubleList);
+                                            *paramSize = int_map_set(*paramSize, vname, tokens.count + 1);
                                         } else if (*temp == IntegerList) {
                                             is_grid = Y;
                                             type = IntegerList;
-                                            int line1_len = snprintf(NULL, 0, "const int %s[%d][%d] = {\n\t{%s", vname, tokens.count, count, token);
+                                            int line1_len = snprintf(NULL, 0, "const int %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, token);
                                             char *buffer1 = malloc(line1_len + 1);
-                                            sprintf(buffer1, "const int %s[%d][%d] = {\n\t{%s", vname, tokens.count, count, token);
+                                            sprintf(buffer1, "const int %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, token);
                                             global_script = join_str(global_script, buffer1);
                                             free(buffer1);
+                                            *params = int_map_set(*params, vname, IntegerGrid);
+                                            *paramSize = int_map_set(*paramSize, vname, tokens.count + 1);
                                         } else if (*temp == DoubleList) {
                                             is_grid = Y;
                                             type = DoubleList;
-                                            int line1_len = snprintf(NULL, 0, "const double %s[%d][%d] = {\n\t{%s", vname, tokens.count, count, token);
+                                            int line1_len = snprintf(NULL, 0, "const double %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, token);
                                             char *buffer1 = malloc(line1_len + 1);
-                                            sprintf(buffer1, "const double %s[%d][%d] = {\n\t{%s", vname, tokens.count, count, token);
+                                            sprintf(buffer1, "const double %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, token);
                                             global_script = join_str(global_script, buffer1);
                                             free(buffer1);
+                                            *params = int_map_set(*params, vname, DoubleGrid);
+                                            *paramSize = int_map_set(*paramSize, vname, tokens.count + 1);
                                         } else {
                                             free(vname);
                                             clear_int_list(tokens);
@@ -1354,7 +1364,7 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                             syslogger(filename, fline_number, UNKNOWN_DATATYPE);
                                             goto cleanup;
                                         }
-                                        if (count != elements.count) {
+                                        if (count != elements.count + 1) {
                                             free(vname);
                                             clear_int_list(tokens);
                                             clear_int_list(elements);
