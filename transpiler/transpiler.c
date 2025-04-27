@@ -1245,7 +1245,6 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                         int *_count = int_map_get(*paramSize, token);
                                         if (_count != NULL) {
                                             count = *_count;
-                                            is_grid = Y;
                                         }
                                         int *temp = int_map_get(*params, token);
                                         if (temp == NULL) {
@@ -1255,22 +1254,22 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                             goto cleanup;
                                         } else if (*temp == String) {
                                             type = String;
-                                            int line1_len = snprintf(NULL, 0, "const char *%s[%d] = {%s};\n", vname, tokens.count, token);
+                                            int line1_len = snprintf(NULL, 0, "const char *%s[%d] = {%s", vname, tokens.count, token);
                                             char *buffer1 = malloc(line1_len + 1);
-                                            sprintf(buffer1, "const char *%s[%d] = {%s};\n", vname, tokens.count, token);
+                                            sprintf(buffer1, "const char *%s[%d] = {%s", vname, tokens.count, token);
                                             global_script = join_str(global_script, buffer1);
                                             free(buffer1);
                                         } else if (*temp == Integer) {
-                                            int line1_len = snprintf(NULL, 0, "const int %s[%d] = {%s};\n", vname, tokens.count, token);
+                                            int line1_len = snprintf(NULL, 0, "const int %s[%d] = {%s", vname, tokens.count, token);
                                             char *buffer1 = malloc(line1_len + 1);
-                                            sprintf(buffer1, "const int %s[%d] = {%s};\n", vname, tokens.count, token);
+                                            sprintf(buffer1, "const int %s[%d] = {%s", vname, tokens.count, token);
                                             global_script = join_str(global_script, buffer1);
                                             free(buffer1);
                                         } else if (*temp == Double) {
                                             type = Double;
-                                            int line1_len = snprintf(NULL, 0, "const double %s[%d] = {%s};\n", vname, tokens.count, token);
+                                            int line1_len = snprintf(NULL, 0, "const double %s[%d] = {%s", vname, tokens.count, token);
                                             char *buffer1 = malloc(line1_len + 1);
-                                            sprintf(buffer1, "const double %s[%d] = {%s};\n", vname, tokens.count, token);
+                                            sprintf(buffer1, "const double %s[%d] = {%s", vname, tokens.count, token);
                                             global_script = join_str(global_script, buffer1);
                                             free(buffer1);
                                         } else if (*temp == IntegerList) {

@@ -4,9 +4,9 @@
 #include <time.h>
 
 const char A[] = "Hello";
-const int AB = -123;
+const double AB = -1.23;
 const char *ABC[2] = {"A", "B", "C"};
-const double ABCD[2] = {1.1, 2.2, 3.3};
+const double ABCD[2] = {AB, 2.2, 3.3};
 const int Grid1[2][2] = {
 	{1, 2, 3},
 	{1, 2, 3},
@@ -34,6 +34,6 @@ void main() {
 		if (AB > 100) { __flow_end__ = clock(); printf("[Info]: %.2fms elapsed (main)", ((double)(__flow_end__-__flow_start__)/CLOCKS_PER_SEC) * 1000); return; }
 	}
 	printf("[Info]: %s", A);
-	printf("[Error]: %d", AB);
+	printf("[Error]: %f", AB);
 	__flow_end__ = clock(); printf("[Info]: %.2fms elapsed (main)", ((double)(__flow_end__-__flow_start__)/CLOCKS_PER_SEC) * 1000); return;
 }

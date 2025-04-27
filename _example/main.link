@@ -7,9 +7,9 @@ multi-line comment
 @debug(true)
 
 @global(A, "Hello")
-@global(AB, -123)
+@global(AB, -1.23)
 @global(ABC, ["A", "B", "C"])
-@global(ABCD, [1.1, 2.2, 3.3])
+@global(ABCD, [AB, 2.2, 3.3])
 @global(ABCDE, ABCD)
 @global(Grid1, [[1, 2, 3], [1, 2, 3], [1, 2, 3]])
 // @global(Grid2, [ABCD, ABCD, ABCD])
