@@ -18,7 +18,8 @@ typedef enum {
     ILLEGAL_DATATYPE,
     REPEATED_KEY,
     UNMATCHED_ELEMENTS,
-    UNMATCHED_DATATYPE
+    UNMATCHED_DATATYPE,
+    PRINTING_OBJECT
 } ErrorCode;
 
 typedef enum {

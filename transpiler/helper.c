@@ -34,6 +34,8 @@ char *error_code2str(ErrorCode error_code) {
             return "UNMATCHED_ELEMENTS";
         case UNMATCHED_DATATYPE:
             return "UNMATCHED_DATATYPE";
+        case PRINTING_OBJECT:
+            return "PRINTING_OBJECT";
     }
     return strdup("");
 }

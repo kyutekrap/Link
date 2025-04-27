@@ -380,15 +380,23 @@ ErrorCode analyze_free_line_text(char *fline, FILE *out_file, YesNo debug, StrMa
             return NO_ERROR;
 
         int func_len = strlen(function.function_value);
+        int type;
         if (!(func_len >= 2 && function.function_value[0] == '"' && function.function_value[func_len-1] == '"')) {
             int *dtype = int_map_get(params, function.function_value);
-            if (dtype == NULL || (*dtype != String && *dtype != Integer))
+            if (dtype == NULL)
                 return UNDEFINED_VARIABLE;
+            else if (*dtype != String && *dtype != Integer && *dtype != Double)
+                return PRINTING_OBJECT;
+            type = *dtype;
         }
 
-        char *info_temp = info(function.function_value);
-        fprintf(out_file, "\t%s", info_temp);
-        free(info_temp);
+        if (type == Integer) {
+            fprintf(out_file, "\tprintf(\"[Info]: %%d\", %s);\n", function.function_value);
+        } else if (type == Double) {
+            fprintf(out_file, "\tprintf(\"[Info]: %%f\", %s);\n", function.function_value);
+        } else {
+            fprintf(out_file, "\tprintf(\"[Info]: %%s\", %s);\n", function.function_value);
+        }
     }
     else if (strcmp(function.function_type, "warning") == 0)
     {
@@ -396,15 +404,23 @@ ErrorCode analyze_free_line_text(char *fline, FILE *out_file, YesNo debug, StrMa
             return NO_ERROR;
 
         int func_len = strlen(function.function_value);
+        int type;
         if (!(func_len >= 2 && function.function_value[0] == '"' && function.function_value[func_len-1] == '"')) {
             int *dtype = int_map_get(params, function.function_value);
-            if (dtype == NULL || (*dtype != String && *dtype != Integer))
+            if (dtype == NULL)
                 return UNDEFINED_VARIABLE;
+            else if (*dtype != String && *dtype != Integer && *dtype != Double)
+                return PRINTING_OBJECT;
+            type = *dtype;
         }
 
-        char *warning_temp = warning(function.function_value);
-        fprintf(out_file, "\t%s", warning_temp);
-        free(warning_temp);
+        if (type == Integer) {
+            fprintf(out_file, "\tprintf(\"[Warning]: %%d\", %s);\n", function.function_value);
+        } else if (type == Double) {
+            fprintf(out_file, "\tprintf(\"[Warning]: %%f\", %s);\n", function.function_value);
+        } else {
+            fprintf(out_file, "\tprintf(\"[Warning]: %%s\", %s);\n", function.function_value);
+        }
     }
     else if (strcmp(function.function_type, "error") == 0)
     {
@@ -412,15 +428,23 @@ ErrorCode analyze_free_line_text(char *fline, FILE *out_file, YesNo debug, StrMa
             return NO_ERROR;
 
         int func_len = strlen(function.function_value);
+        int type;
         if (!(func_len >= 2 && function.function_value[0] == '"' && function.function_value[func_len-1] == '"')) {
             int *dtype = int_map_get(params, function.function_value);
-            if (dtype == NULL || (*dtype != String && *dtype != Integer))
+            if (dtype == NULL)
                 return UNDEFINED_VARIABLE;
+            else if (*dtype != String && *dtype != Integer && *dtype != Double)
+                return PRINTING_OBJECT;
+            type = *dtype;
         }
 
-        char *error_temp = error(function.function_value);
-        fprintf(out_file, "\t%s", error_temp);
-        free(error_temp);
+        if (type == Integer) {
+            fprintf(out_file, "\tprintf(\"[Error]: %%d\", %s);\n", function.function_value);
+        } else if (type == Double) {
+            fprintf(out_file, "\tprintf(\"[Error]: %%f\", %s);\n", function.function_value);
+        } else {
+            fprintf(out_file, "\tprintf(\"[Error]: %%s\", %s);\n", function.function_value);
+        }
     }
     else if (strcmp(function.function_type, "die") == 0)
     {
