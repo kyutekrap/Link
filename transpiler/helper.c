@@ -360,6 +360,8 @@ Property parse_property(char *fline) {
         property_obj.property_type = Import;
     else if (strcmp(property_type, "global") == 0)
         property_obj.property_type = Global;
+    else if (strcmp(property_type, "local") == 0)
+        property_obj.property_type = Local;
     else {
         free(property_type);
         clear_int_list(sValue);

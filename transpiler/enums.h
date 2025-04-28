@@ -45,6 +45,7 @@ typedef enum {
     Global,
     Debug,
     Import,
+    Local,
     UnknownProperty
 } PropertyType;
 

@@ -32,6 +32,7 @@ To create a lightweight, utility-focused language that blends the **simplicity o
 - `#data` - Defines file as data
 - `@debug()` - Inherited from PyLink's Debug
 - `@global()` - Define global constant variable in Flow
+- `@local()` - Define local variables
 - `@import()` - Import Steps to Flow
 - `info()` – Inherited from PyLink's Debugger  
 - `warning()` – Inherited from PyLink's Debugger  

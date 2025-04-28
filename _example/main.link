@@ -19,6 +19,15 @@ multi-line comment
 @import("./src/test2.link")
 @import("./libs/neutrocon/main.h")
 
+@local(A1, "Hello")
+@local(AB1, -1.23)
+@local(ABC1, ["A", "B", "C"])
+@local(ABCD1, [AB, 2.2, 3.3])
+@local(ABCDE1, ABCD)
+@local(Grid11, [[1, 2, 3], [1, 2, 3], [1, 2, 3]])
+@local(Grid21, [ABCD, ABCD, ABCD])
+@local(Grid31, [[1.1, 2.2, 3.3], ABCD, ABCD])
+
 depends(A, {[eq("Hello")], [test2()]})
 depends(AB, {[gt(0), lt(100)], [test2(), die()]})
 

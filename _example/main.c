@@ -24,7 +24,15 @@ const double Grid3[3][3] = {
 	{ABCD},
 	{ABCD}
 };
-
+, "B", "C", 2.2, 3.3const double ABCDE1[3];
+memcpy(ABCDE1, ABCD, sizeof(ABCD));
+, 2, 3},
+	{1, 2, 3},
+	{1, 2, 3},
+	{ABCD},
+	{ABCD, 2.2, 3.3},
+	{ABCD},
+	{ABCD
 const int Data1[9] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
 
 void src_test2() {

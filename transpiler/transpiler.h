@@ -9,6 +9,7 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <stdarg.h>
 #include "../utils/utils.h"
 #include "../flow/flow.h"
 #include "../step/step.h"
