@@ -1118,6 +1118,10 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                             char *buffer = println(filename, fline_number, "const char %s[] = %s;\n", vname, mlist.data[1]);
                             global_script = join_str(global_script, buffer);
                             free(buffer);
+                        } else {
+                            char *buffer = println(filename, fline_number, "const char %s[] = %s;\n", vname, mlist.data[1]);
+                            local_script = join_str(local_script, buffer);
+                            free(buffer);
                         }
 
                         *params = int_map_set(*params, vname, String);
@@ -1128,6 +1132,10 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                             char *buffer = println(filename, fline_number, "const int %s = %s;\n", vname, mlist.data[1]);
                             global_script = join_str(global_script, buffer);
                             free(buffer);
+                        } else {
+                            char *buffer = println(filename, fline_number, "const int %s = %s;\n", vname, mlist.data[1]);
+                            local_script = join_str(local_script, buffer);
+                            free(buffer);
                         }
 
                         *params = int_map_set(*params, vname, Integer);
@@ -1137,6 +1145,10 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                         if (property_obj.property_type == Global) {
                             char *buffer = println(filename, fline_number, "const double %s = %s;\n", vname, mlist.data[1]);
                             global_script = join_str(global_script, buffer);
+                            free(buffer);
+                        } else {
+                            char *buffer = println(filename, fline_number, "const double %s = %s;\n", vname, mlist.data[1]);
+                            local_script = join_str(local_script, buffer);
                             free(buffer);
                         }
 
@@ -1164,6 +1176,10 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                         char *buffer = println(filename, fline_number, "const int %s[%d] = {%s", vname, tokens.count + 1, token);
                                         global_script = join_str(global_script, buffer);
                                         free(buffer);
+                                    } else {
+                                        char *buffer = println(filename, fline_number, "const int %s[%d] = {%s", vname, tokens.count + 1, token);
+                                        local_script = join_str(local_script, buffer);
+                                        free(buffer);
                                     }
 
                                     *params = int_map_set(*params, vname, IntegerList);
@@ -1173,6 +1189,10 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                     if (property_obj.property_type == Global) {
                                         char *buffer = println(filename, fline_number, "const double %s[%d] = {%s", vname, tokens.count + 1, token);
                                         global_script = join_str(global_script, buffer);
+                                        free(buffer);
+                                    } else {
+                                        char *buffer = println(filename, fline_number, "const double %s[%d] = {%s", vname, tokens.count + 1, token);
+                                        local_script = join_str(local_script, buffer);
                                         free(buffer);
                                     }
                                     
@@ -1185,6 +1205,10 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                         if (property_obj.property_type == Global) {
                                             char *buffer = println(filename, fline_number, "const char *%s[%d] = {%s", vname, tokens.count + 1, token);
                                             global_script = join_str(global_script, buffer);
+                                            free(buffer);
+                                        } else {
+                                            char *buffer = println(filename, fline_number, "const char *%s[%d] = {%s", vname, tokens.count + 1, token);
+                                            local_script = join_str(local_script, buffer);
                                             free(buffer);
                                         }
 
@@ -1210,6 +1234,10 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                                         char *buffer = println(filename, fline_number, "const int %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, element);
                                                         global_script = join_str(global_script, buffer);
                                                         free(buffer);
+                                                    } else {
+                                                        char *buffer = println(filename, fline_number, "const int %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, element);
+                                                        local_script = join_str(local_script, buffer);
+                                                        free(buffer);
                                                     }
 
                                                     *params = int_map_set(*params, vname, IntegerGrid);
@@ -1220,6 +1248,10 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                                     if (property_obj.property_type == Global) {
                                                         char *buffer = println(filename, fline_number, "const double %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, element);
                                                         global_script = join_str(global_script, buffer);
+                                                        free(buffer);
+                                                    } else {
+                                                        char *buffer = println(filename, fline_number, "const double %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, element);
+                                                        local_script = join_str(local_script, buffer);
                                                         free(buffer);
                                                     }
                                                     
@@ -1248,9 +1280,15 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                                     syslogger(filename, fline_number, UNMATCHED_DATATYPE);
                                                     goto cleanup;
                                                 } else {
-                                                    char *buffer = println(filename, fline_number, ", %s", element);
-                                                    global_script = join_str(global_script, buffer);
-                                                    free(buffer);
+                                                    if (property_obj.property_type == Global) {
+                                                        char *buffer = println(filename, fline_number, ", %s", element);
+                                                        global_script = join_str(global_script, buffer);
+                                                        free(buffer);
+                                                    } else {
+                                                        char *buffer = println(filename, fline_number, ", %s", element);
+                                                        local_script = join_str(local_script, buffer);
+                                                        free(buffer);
+                                                    }
                                                 }
                                             } else {
                                                 char *element = trim(substr(_token, *elements.data[j-1] + 1, strlen(_token) - *elements.data[j-1] - 1));
@@ -1267,9 +1305,15 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                                     syslogger(filename, fline_number, UNMATCHED_DATATYPE);
                                                     goto cleanup;
                                                 } else {
-                                                    char *buffer = println(filename, fline_number, ", %s", element);
-                                                    global_script = join_str(global_script, buffer);
-                                                    free(buffer);
+                                                    if (property_obj.property_type == Global) {
+                                                        char *buffer = println(filename, fline_number, ", %s", element);
+                                                        global_script = join_str(global_script, buffer);
+                                                        free(buffer);
+                                                    } else {
+                                                        char *buffer = println(filename, fline_number, ", %s", element);
+                                                        local_script = join_str(local_script, buffer);
+                                                        free(buffer);
+                                                    }
                                                 }
                                             }
                                         }
@@ -1290,6 +1334,10 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                                 char *buffer = println(filename, fline_number, "const char *%s[%d] = {%s", vname, tokens.count + 1, token);
                                                 global_script = join_str(global_script, buffer);
                                                 free(buffer);
+                                            } else {
+                                                char *buffer = println(filename, fline_number, "const char *%s[%d] = {%s", vname, tokens.count + 1, token);
+                                                local_script = join_str(local_script, buffer);
+                                                free(buffer);
                                             }
 
                                             *params = int_map_set(*params, vname, StringList);
@@ -1298,6 +1346,10 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                             if (property_obj.property_type == Global) {
                                                 char *buffer = println(filename, fline_number, "const int %s[%d] = {%s", vname, tokens.count + 1, token);
                                                 global_script = join_str(global_script, buffer);
+                                                free(buffer);
+                                            } else {
+                                                char *buffer = println(filename, fline_number, "const int %s[%d] = {%s", vname, tokens.count + 1, token);
+                                                local_script = join_str(local_script, buffer);
                                                 free(buffer);
                                             }
                                             
@@ -1308,6 +1360,10 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                             if (property_obj.property_type == Global) {
                                                 char *buffer = println(filename, fline_number, "const double %s[%d] = {%s", vname, tokens.count + 1, token);
                                                 global_script = join_str(global_script, buffer);
+                                                free(buffer);
+                                            } else {
+                                                char *buffer = println(filename, fline_number, "const double %s[%d] = {%s", vname, tokens.count + 1, token);
+                                                local_script = join_str(local_script, buffer);
                                                 free(buffer);
                                             }
                                             
@@ -1320,6 +1376,10 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                                 char *buffer = println(filename, fline_number, "const int %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, token);
                                                 global_script = join_str(global_script, buffer);
                                                 free(buffer);
+                                            } else {
+                                                char *buffer = println(filename, fline_number, "const int %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, token);
+                                                local_script = join_str(local_script, buffer);
+                                                free(buffer);
                                             }
                                             
                                             *params = int_map_set(*params, vname, IntegerGrid);
@@ -1330,6 +1390,10 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                             if (property_obj.property_type == Global) {
                                                 char *buffer = println(filename, fline_number, "const double %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, token);
                                                 global_script = join_str(global_script, buffer);
+                                                free(buffer);
+                                            } else {
+                                                char *buffer = println(filename, fline_number, "const double %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, token);
+                                                local_script = join_str(local_script, buffer);
                                                 free(buffer);
                                             }
                                             
@@ -1355,9 +1419,15 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                             syslogger(filename, fline_number, UNMATCHED_DATATYPE);
                                             goto cleanup;
                                         } else {
-                                            char *buffer = println(filename, fline_number, ", %s", token);
-                                            global_script = join_str(global_script, buffer);
-                                            free(buffer);
+                                            if (property_obj.property_type == Global) {
+                                                char *buffer = println(filename, fline_number, ", %s", token);
+                                                global_script = join_str(global_script, buffer);
+                                                free(buffer);
+                                            } else {
+                                                char *buffer = println(filename, fline_number, ", %s", token);
+                                                local_script = join_str(local_script, buffer);
+                                                free(buffer);
+                                            }
                                         }
                                     } else if (type == Double) {
                                         if (is_double(token) == N) {
@@ -1366,9 +1436,15 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                             syslogger(filename, fline_number, UNMATCHED_DATATYPE);
                                             goto cleanup;
                                         } else {
-                                            char *buffer = println(filename, fline_number, ", %s", token);
-                                            global_script = join_str(global_script, buffer);
-                                            free(buffer);
+                                            if (property_obj.property_type == Global) {
+                                                char *buffer = println(filename, fline_number, ", %s", token);
+                                                global_script = join_str(global_script, buffer);
+                                                free(buffer);
+                                            } else {
+                                                char *buffer = println(filename, fline_number, ", %s", token);
+                                                local_script = join_str(local_script, buffer);
+                                                free(buffer);
+                                            }
                                         }
                                     } else {
                                         int temp = strlen(token);
@@ -1378,9 +1454,15 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                             syslogger(filename, fline_number, UNMATCHED_DATATYPE);
                                             goto cleanup;
                                         } else {
-                                            char *buffer = println(filename, fline_number, ", %s", token);
-                                            global_script = join_str(global_script, buffer);
-                                            free(buffer);
+                                            if (property_obj.property_type == Global) {
+                                                char *buffer = println(filename, fline_number, ", %s", token);
+                                                global_script = join_str(global_script, buffer);
+                                                free(buffer);
+                                            } else {
+                                                char *buffer = println(filename, fline_number, ", %s", token);
+                                                local_script = join_str(local_script, buffer);
+                                                free(buffer);
+                                            }
                                         }
                                     }
                                 } else {
@@ -1413,9 +1495,15 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                                         syslogger(filename, fline_number, UNKNOWN_DATATYPE);
                                                         goto cleanup;
                                                     } else {
-                                                        char *buffer = println(filename, fline_number, "},\n\t{%s", element);
-                                                        global_script = join_str(global_script, buffer);
-                                                        free(buffer);
+                                                        if (property_obj.property_type == Global) {
+                                                            char *buffer = println(filename, fline_number, "},\n\t{%s", element);
+                                                            global_script = join_str(global_script, buffer);
+                                                            free(buffer);
+                                                        } else {
+                                                            char *buffer = println(filename, fline_number, "},\n\t{%s", element);
+                                                            local_script = join_str(local_script, buffer);
+                                                            free(buffer);
+                                                        }
                                                     }
                                                 } else if (type == Double) {
                                                     if (is_double(element) == N) {
@@ -1425,9 +1513,15 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                                         syslogger(filename, fline_number, UNKNOWN_DATATYPE);
                                                         goto cleanup;
                                                     } else {
-                                                        char *buffer = println(filename, fline_number, "},\n\t{%s", element);
-                                                        global_script = join_str(global_script, buffer);
-                                                        free(buffer);
+                                                        if (property_obj.property_type == Global) {
+                                                            char *buffer = println(filename, fline_number, "},\n\t{%s", element);
+                                                            global_script = join_str(global_script, buffer);
+                                                            free(buffer);
+                                                        } else {
+                                                            char *buffer = println(filename, fline_number, "},\n\t{%s", element);
+                                                            local_script = join_str(local_script, buffer);
+                                                            free(buffer);
+                                                        }
                                                     }
                                                 }
                                             } else {
@@ -1441,9 +1535,15 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                                         syslogger(filename, fline_number, UNKNOWN_DATATYPE);
                                                         goto cleanup;
                                                     } else {
-                                                        char *buffer = println(filename, fline_number, ", %s", element);
-                                                        global_script = join_str(global_script, buffer);
-                                                        free(buffer);
+                                                        if (property_obj.property_type == Global) {
+                                                            char *buffer = println(filename, fline_number, ", %s", element);
+                                                            global_script = join_str(global_script, buffer);
+                                                            free(buffer);
+                                                        } else {
+                                                            char *buffer = println(filename, fline_number, ", %s", element);
+                                                            local_script = join_str(local_script, buffer);
+                                                            free(buffer);
+                                                        }
                                                     }
                                                 } else if (type == Double) {
                                                     if (is_double(element) == N) {
@@ -1453,9 +1553,15 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                                         syslogger(filename, fline_number, UNKNOWN_DATATYPE);
                                                         goto cleanup;
                                                     } else {
-                                                        char *buffer = println(filename, fline_number, ", %s", element);
-                                                        global_script = join_str(global_script, buffer);
-                                                        free(buffer);
+                                                        if (property_obj.property_type == Global) {
+                                                            char *buffer = println(filename, fline_number, ", %s", element);
+                                                            global_script = join_str(global_script, buffer);
+                                                            free(buffer);
+                                                        } else {
+                                                            char *buffer = println(filename, fline_number, ", %s", element);
+                                                            local_script = join_str(local_script, buffer);
+                                                            free(buffer);
+                                                        }
                                                     }
                                                 }
                                             }
@@ -1484,9 +1590,15 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                             syslogger(filename, fline_number, UNMATCHED_DATATYPE);
                                             goto cleanup;
                                         } else {
-                                            char *buffer = println(filename, fline_number, "},\n\t{%s", token);
-                                            global_script = join_str(global_script, buffer);
-                                            free(buffer);
+                                            if (property_obj.property_type == Global) {
+                                                char *buffer = println(filename, fline_number, "},\n\t{%s", token);
+                                                global_script = join_str(global_script, buffer);
+                                                free(buffer);
+                                            } else {
+                                                char *buffer = println(filename, fline_number, "},\n\t{%s", token);
+                                                local_script = join_str(local_script, buffer);
+                                                free(buffer);
+                                            }
                                         }
                                     }
                                 }
