@@ -392,7 +392,7 @@ char *println(char *filename, int fline_number, const char *format, ...) {
 
 // ===== HELPERS (START)
 
-ErrorCode analyze_free_line_text(char *fline, FILE *out_file, YesNo debug, StrMap imports, IdentifierType identifier_type, char *namespace, IntMap params) {
+ErrorCode analyze_free_line_text(char *fline, FILE *out_file, YesNo debug, StrMap imports, IdentifierType identifier_type, char *namespace, IntMap params, IntMap local_params) {
     if (is_function(fline) == N)
         return UNKNOWN_FUNCTION;
 
@@ -411,9 +411,15 @@ ErrorCode analyze_free_line_text(char *fline, FILE *out_file, YesNo debug, StrMa
         if (!(func_len >= 2 && function.function_value[0] == '"' && function.function_value[func_len-1] == '"')) {
             int *dtype = int_map_get(params, function.function_value);
             if (dtype == NULL)
-                return UNDEFINED_VARIABLE;
+            {
+                dtype = int_map_get(local_params, function.function_value);
+                if (dtype == NULL)
+                    return UNDEFINED_VARIABLE;
+            }
             else if (*dtype != String && *dtype != Integer && *dtype != Double)
+            {
                 return PRINTING_OBJECT;
+            }
             type = *dtype;
         }
 
@@ -435,9 +441,15 @@ ErrorCode analyze_free_line_text(char *fline, FILE *out_file, YesNo debug, StrMa
         if (!(func_len >= 2 && function.function_value[0] == '"' && function.function_value[func_len-1] == '"')) {
             int *dtype = int_map_get(params, function.function_value);
             if (dtype == NULL)
-                return UNDEFINED_VARIABLE;
+            {
+                dtype = int_map_get(local_params, function.function_value);
+                if (dtype == NULL)
+                    return UNDEFINED_VARIABLE;
+            }
             else if (*dtype != String && *dtype != Integer && *dtype != Double)
+            {
                 return PRINTING_OBJECT;
+            }
             type = *dtype;
         }
 
@@ -458,10 +470,15 @@ ErrorCode analyze_free_line_text(char *fline, FILE *out_file, YesNo debug, StrMa
         int type;
         if (!(func_len >= 2 && function.function_value[0] == '"' && function.function_value[func_len-1] == '"')) {
             int *dtype = int_map_get(params, function.function_value);
-            if (dtype == NULL)
-                return UNDEFINED_VARIABLE;
+            if (dtype == NULL) {
+                dtype = int_map_get(local_params, function.function_value);
+                if (dtype == NULL)
+                    return UNDEFINED_VARIABLE;
+            }
             else if (*dtype != String && *dtype != Integer && *dtype != Double)
+            {
                 return PRINTING_OBJECT;
+            }
             type = *dtype;
         }
 
@@ -506,7 +523,7 @@ ErrorCode analyze_free_line_text(char *fline, FILE *out_file, YesNo debug, StrMa
     else if (strcmp(function.function_type, "depends") == 0)
     {
         StrList mlist = str2list(function.function_value);
-        if (int_map_get(params, mlist.data[0]) == NULL)
+        if (int_map_get(params, mlist.data[0]) == NULL && int_map_get(local_params, mlist.data[0]))
             return UNDEFINED_VARIABLE;
 
         if (get_dtype(mlist.data[1]) != Map)
@@ -687,7 +704,7 @@ ErrorCode analyze_free_line_text(char *fline, FILE *out_file, YesNo debug, StrMa
     else if (strcmp(function.function_type, "while") == 0)
     {
         StrList mlist = str2list(function.function_value);
-        if (int_map_get(params, mlist.data[0]) == NULL)
+        if (int_map_get(params, mlist.data[0]) == NULL && int_map_get(local_params, mlist.data[0]))
             return UNDEFINED_VARIABLE;
 
         if (get_dtype(mlist.data[1]) != Map)
@@ -991,10 +1008,12 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                             fputs(step_s_temp, out_file);
                             free(step_s_temp);
                         }
-                    } else {
-                        fputs("\n", out_file);
                     }
-                    ErrorCode err_cd = analyze_free_line_text(fline, out_file, summary.debug, import_dict, summary.identifier_type, summary.name, *params);
+                    if (local_script != NULL) {
+                        fputs(local_script, out_file);
+                        free(local_script);
+                    }
+                    ErrorCode err_cd = analyze_free_line_text(fline, out_file, summary.debug, import_dict, summary.identifier_type, summary.name, *params, local_params);
                     if (err_cd != NO_ERROR && err_cd != UNKNOWN_FUNCTION) {
                         syslogger(filename, fline_number, err_cd);
                         goto cleanup;
@@ -1119,7 +1138,7 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                             global_script = join_str(global_script, buffer);
                             free(buffer);
                         } else {
-                            char *buffer = println(filename, fline_number, "static char %s[] = %s;\n", vname, mlist.data[1]);
+                            char *buffer = println(filename, fline_number, "\tstatic char %s[] = %s;\n", vname, mlist.data[1]);
                             local_script = join_str(local_script, buffer);
                             free(buffer);
                         }
@@ -1133,7 +1152,7 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                             global_script = join_str(global_script, buffer);
                             free(buffer);
                         } else {
-                            char *buffer = println(filename, fline_number, "static int %s = %s;\n", vname, mlist.data[1]);
+                            char *buffer = println(filename, fline_number, "\tstatic int %s = %s;\n", vname, mlist.data[1]);
                             local_script = join_str(local_script, buffer);
                             free(buffer);
                         }
@@ -1147,7 +1166,7 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                             global_script = join_str(global_script, buffer);
                             free(buffer);
                         } else {
-                            char *buffer = println(filename, fline_number, "static double %s = %s;\n", vname, mlist.data[1]);
+                            char *buffer = println(filename, fline_number, "\tstatic double %s = %s;\n", vname, mlist.data[1]);
                             local_script = join_str(local_script, buffer);
                             free(buffer);
                         }
@@ -1176,28 +1195,30 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                         char *buffer = println(filename, fline_number, "static int %s[%d] = {%s", vname, tokens.count + 1, token);
                                         global_script = join_str(global_script, buffer);
                                         free(buffer);
+                                        *params = int_map_set(*params, vname, IntegerList);
+                                        *paramSize = int_map_set(*paramSize, vname, tokens.count + 1);
                                     } else {
-                                        char *buffer = println(filename, fline_number, "static int %s[%d] = {%s", vname, tokens.count + 1, token);
+                                        char *buffer = println(filename, fline_number, "\tstatic int %s[%d] = {%s", vname, tokens.count + 1, token);
                                         local_script = join_str(local_script, buffer);
                                         free(buffer);
+                                        local_params = int_map_set(local_params, vname, IntegerList);
+                                        local_paramSize = int_map_set(local_paramSize, vname, tokens.count + 1);
                                     }
-
-                                    *params = int_map_set(*params, vname, IntegerList);
-                                    *paramSize = int_map_set(*paramSize, vname, tokens.count + 1);
                                 } else if (is_double(token) == Y) {
                                     type = Double;
                                     if (property_obj.property_type == Global) {
                                         char *buffer = println(filename, fline_number, "static double %s[%d] = {%s", vname, tokens.count + 1, token);
                                         global_script = join_str(global_script, buffer);
                                         free(buffer);
+                                        *params = int_map_set(*params, vname, DoubleList);
+                                        *paramSize = int_map_set(*paramSize, vname, tokens.count + 1);
                                     } else {
-                                        char *buffer = println(filename, fline_number, "static double %s[%d] = {%s", vname, tokens.count + 1, token);
+                                        char *buffer = println(filename, fline_number, "\tstatic double %s[%d] = {%s", vname, tokens.count + 1, token);
                                         local_script = join_str(local_script, buffer);
                                         free(buffer);
+                                        local_params = int_map_set(local_params, vname, DoubleList);
+                                        local_paramSize = int_map_set(local_paramSize, vname, tokens.count + 1);
                                     }
-                                    
-                                    *params = int_map_set(*params, vname, DoubleList);
-                                    *paramSize = int_map_set(*paramSize, vname, tokens.count + 1);
                                 } else {
                                     int temp = strlen(token);
                                     if (temp > 1 && token[0] == '"' && token[temp-1] == '"') {
@@ -1206,14 +1227,15 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                             char *buffer = println(filename, fline_number, "static char *%s[%d] = {%s", vname, tokens.count + 1, token);
                                             global_script = join_str(global_script, buffer);
                                             free(buffer);
+                                            *params = int_map_set(*params, vname, StringList);
+                                            *paramSize = int_map_set(*paramSize, vname, tokens.count + 1);
                                         } else {
-                                            char *buffer = println(filename, fline_number, "static char *%s[%d] = {%s", vname, tokens.count + 1, token);
+                                            char *buffer = println(filename, fline_number, "\tstatic char *%s[%d] = {%s", vname, tokens.count + 1, token);
                                             local_script = join_str(local_script, buffer);
                                             free(buffer);
+                                            local_params = int_map_set(local_params, vname, StringList);
+                                            local_paramSize = int_map_set(local_paramSize, vname, tokens.count + 1);
                                         }
-
-                                        *params = int_map_set(*params, vname, StringList);
-                                        *paramSize = int_map_set(*paramSize, vname, tokens.count + 1);
                                     } else if (temp > 1 && token[0] == '[' && token[temp-1] == ']') {
                                         is_grid = Y;
                                         char *_token = substr(token, 1, temp-2);
@@ -1234,30 +1256,34 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                                         char *buffer = println(filename, fline_number, "static int %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, element);
                                                         global_script = join_str(global_script, buffer);
                                                         free(buffer);
+                                                        *params = int_map_set(*params, vname, IntegerGrid);
+                                                        *paramSize = int_map_set(*paramSize, vname, tokens.count + 1);
+                                                        *paramInnerSize = int_map_set(*paramInnerSize, vname, count);
                                                     } else {
-                                                        char *buffer = println(filename, fline_number, "static int %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, element);
+                                                        char *buffer = println(filename, fline_number, "\tstatic int %s[%d][%d] = {\n\t\t{%s", vname, tokens.count + 1, count, element);
                                                         local_script = join_str(local_script, buffer);
                                                         free(buffer);
+                                                        local_params = int_map_set(local_params, vname, IntegerGrid);
+                                                        local_paramSize = int_map_set(local_paramSize, vname, tokens.count + 1);
+                                                        local_paramInnerSize = int_map_set(local_paramInnerSize, vname, count);
                                                     }
-
-                                                    *params = int_map_set(*params, vname, IntegerGrid);
-                                                    *paramSize = int_map_set(*paramSize, vname, tokens.count + 1);
-                                                    *paramInnerSize = int_map_set(*paramInnerSize, vname, count);
                                                 } else if (is_double(element) == Y) {
                                                     type = Double;
                                                     if (property_obj.property_type == Global) {
                                                         char *buffer = println(filename, fline_number, "static double %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, element);
                                                         global_script = join_str(global_script, buffer);
                                                         free(buffer);
+                                                        *params = int_map_set(*params, vname, DoubleGrid);
+                                                        *paramSize = int_map_set(*paramSize, vname, tokens.count + 1);
+                                                        *paramInnerSize = int_map_set(*paramInnerSize, vname, count);
                                                     } else {
-                                                        char *buffer = println(filename, fline_number, "static double %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, element);
+                                                        char *buffer = println(filename, fline_number, "\tstatic double %s[%d][%d] = {\n\t\t{%s", vname, tokens.count + 1, count, element);
                                                         local_script = join_str(local_script, buffer);
                                                         free(buffer);
+                                                        local_params = int_map_set(local_params, vname, DoubleGrid);
+                                                        local_paramSize = int_map_set(local_paramSize, vname, tokens.count + 1);
+                                                        local_paramInnerSize = int_map_set(local_paramInnerSize, vname, count);
                                                     }
-                                                    
-                                                    *params = int_map_set(*params, vname, DoubleGrid);
-                                                    *paramSize = int_map_set(*paramSize, vname, tokens.count + 1);
-                                                    *paramInnerSize = int_map_set(*paramInnerSize, vname, count);
                                                 } else {
                                                     clear_str_list(&mlist);
                                                     clear_int_list(&tokens);
@@ -1318,11 +1344,11 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                             }
                                         }
                                     } else {
-                                        int *_count = int_map_get(*paramSize, token);
+                                        int *_count = int_map_get((property_obj.property_type == Global) ? *paramSize : local_paramSize, token);
                                         if (_count != NULL) {
                                             count = *_count;
                                         }
-                                        int *temp = int_map_get(*params, token);
+                                        int *temp = int_map_get((property_obj.property_type == Global) ? *params : local_params, token);
                                         if (temp == NULL) {
                                             clear_str_list(&mlist);
                                             clear_int_list(&tokens);
@@ -1334,41 +1360,44 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                                 char *buffer = println(filename, fline_number, "static char *%s[%d] = {%s", vname, tokens.count + 1, token);
                                                 global_script = join_str(global_script, buffer);
                                                 free(buffer);
+                                                *params = int_map_set(*params, vname, StringList);
+                                                *paramSize = int_map_set(*paramSize, vname, tokens.count + 1);
                                             } else {
-                                                char *buffer = println(filename, fline_number, "static char *%s[%d] = {%s", vname, tokens.count + 1, token);
+                                                char *buffer = println(filename, fline_number, "\tstatic char *%s[%d] = {%s", vname, tokens.count + 1, token);
                                                 local_script = join_str(local_script, buffer);
                                                 free(buffer);
+                                                local_params = int_map_set(local_params, vname, StringList);
+                                                local_paramSize = int_map_set(local_paramSize, vname, tokens.count + 1);
                                             }
-
-                                            *params = int_map_set(*params, vname, StringList);
-                                            *paramSize = int_map_set(*paramSize, vname, tokens.count + 1);
                                         } else if (*temp == Integer) {
                                             if (property_obj.property_type == Global) {
                                                 char *buffer = println(filename, fline_number, "static int %s[%d] = {%s", vname, tokens.count + 1, token);
                                                 global_script = join_str(global_script, buffer);
                                                 free(buffer);
+                                                *params = int_map_set(*params, vname, IntegerList);
+                                                *paramSize = int_map_set(*paramSize, vname, tokens.count + 1);
                                             } else {
-                                                char *buffer = println(filename, fline_number, "static int %s[%d] = {%s", vname, tokens.count + 1, token);
+                                                char *buffer = println(filename, fline_number, "\tstatic int %s[%d] = {%s", vname, tokens.count + 1, token);
                                                 local_script = join_str(local_script, buffer);
                                                 free(buffer);
+                                                local_params = int_map_set(local_params, vname, IntegerList);
+                                                local_paramSize = int_map_set(local_paramSize, vname, tokens.count + 1);
                                             }
-                                            
-                                            *params = int_map_set(*params, vname, IntegerList);
-                                            *paramSize = int_map_set(*paramSize, vname, tokens.count + 1);
                                         } else if (*temp == Double) {
                                             type = Double;
                                             if (property_obj.property_type == Global) {
                                                 char *buffer = println(filename, fline_number, "static double %s[%d] = {%s", vname, tokens.count + 1, token);
                                                 global_script = join_str(global_script, buffer);
                                                 free(buffer);
+                                                *params = int_map_set(*params, vname, DoubleList);
+                                                *paramSize = int_map_set(*paramSize, vname, tokens.count + 1);
                                             } else {
-                                                char *buffer = println(filename, fline_number, "static double %s[%d] = {%s", vname, tokens.count + 1, token);
+                                                char *buffer = println(filename, fline_number, "\tstatic double %s[%d] = {%s", vname, tokens.count + 1, token);
                                                 local_script = join_str(local_script, buffer);
                                                 free(buffer);
+                                                local_params = int_map_set(local_params, vname, DoubleList);
+                                                local_paramSize = int_map_set(local_paramSize, vname, tokens.count + 1);
                                             }
-                                            
-                                            *params = int_map_set(*params, vname, DoubleList);
-                                            *paramSize = int_map_set(*paramSize, vname, tokens.count + 1);
                                         } else if (*temp == IntegerList) {
                                             is_grid = Y;
                                             type = IntegerList;
@@ -1376,14 +1405,15 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                                 char *buffer = println(filename, fline_number, "static int %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, token);
                                                 global_script = join_str(global_script, buffer);
                                                 free(buffer);
+                                                *params = int_map_set(*params, vname, IntegerGrid);
+                                                *paramSize = int_map_set(*paramSize, vname, tokens.count + 1);
                                             } else {
-                                                char *buffer = println(filename, fline_number, "static int %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, token);
+                                                char *buffer = println(filename, fline_number, "\tstatic int %s[%d][%d] = {\n\t\t{%s", vname, tokens.count + 1, count, token);
                                                 local_script = join_str(local_script, buffer);
                                                 free(buffer);
+                                                local_params = int_map_set(local_params, vname, IntegerGrid);
+                                                local_paramSize = int_map_set(local_paramSize, vname, tokens.count + 1);
                                             }
-                                            
-                                            *params = int_map_set(*params, vname, IntegerGrid);
-                                            *paramSize = int_map_set(*paramSize, vname, tokens.count + 1);
                                         } else if (*temp == DoubleList) {
                                             is_grid = Y;
                                             type = DoubleList;
@@ -1391,14 +1421,15 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                                 char *buffer = println(filename, fline_number, "static double %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, token);
                                                 global_script = join_str(global_script, buffer);
                                                 free(buffer);
+                                                *params = int_map_set(*params, vname, DoubleGrid);
+                                                *paramSize = int_map_set(*paramSize, vname, tokens.count + 1);
                                             } else {
-                                                char *buffer = println(filename, fline_number, "static double %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, token);
+                                                char *buffer = println(filename, fline_number, "\tstatic double %s[%d][%d] = {\n\t\t{%s", vname, tokens.count + 1, count, token);
                                                 local_script = join_str(local_script, buffer);
                                                 free(buffer);
+                                                local_params = int_map_set(local_params, vname, DoubleGrid);
+                                                local_paramSize = int_map_set(local_paramSize, vname, tokens.count + 1);
                                             }
-                                            
-                                            *params = int_map_set(*params, vname, DoubleGrid);
-                                            *paramSize = int_map_set(*paramSize, vname, tokens.count + 1);
                                         } else {
                                             clear_str_list(&mlist);
                                             clear_int_list(&tokens);
@@ -1500,7 +1531,7 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                                             global_script = join_str(global_script, buffer);
                                                             free(buffer);
                                                         } else {
-                                                            char *buffer = println(filename, fline_number, "},\n\t{%s", element);
+                                                            char *buffer = println(filename, fline_number, "},\n\t\t{%s", element);
                                                             local_script = join_str(local_script, buffer);
                                                             free(buffer);
                                                         }
@@ -1518,7 +1549,7 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                                             global_script = join_str(global_script, buffer);
                                                             free(buffer);
                                                         } else {
-                                                            char *buffer = println(filename, fline_number, "},\n\t{%s", element);
+                                                            char *buffer = println(filename, fline_number, "},\n\t\t{%s", element);
                                                             local_script = join_str(local_script, buffer);
                                                             free(buffer);
                                                         }
@@ -1567,13 +1598,13 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                             }
                                         }
                                     } else {
-                                        if (count != *int_map_get(*paramSize, token)) {
+                                        if (count != *int_map_get((property_obj.property_type == Global) ? *paramSize : local_paramSize, token)) {
                                             clear_str_list(&mlist);
                                             clear_int_list(&tokens);
                                             syslogger(filename, fline_number, UNMATCHED_ELEMENTS);
                                             goto cleanup;
                                         }
-                                        int *_temp = int_map_get(*params, token);
+                                        int *_temp = int_map_get((property_obj.property_type == Global) ? *params : local_params, token);
                                         if (_temp == NULL) {
                                             clear_str_list(&mlist);
                                             clear_int_list(&tokens);
@@ -1595,7 +1626,7 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                                 global_script = join_str(global_script, buffer);
                                                 free(buffer);
                                             } else {
-                                                char *buffer = println(filename, fline_number, "},\n\t{%s", token);
+                                                char *buffer = println(filename, fline_number, "},\n\t\t{%s", token);
                                                 local_script = join_str(local_script, buffer);
                                                 free(buffer);
                                             }
@@ -1604,10 +1635,11 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                 }
                             }
                         }
-                        char *format = (is_grid == Y) ? "}\n};\n" : "};\n";
                         if (property_obj.property_type == Global) {
+                            char *format = (is_grid == Y) ? "}\n};\n" : "};\n";
                             global_script = join_str(global_script, format);
                         } else {
+                            char *format = (is_grid == Y) ? "}\n\t};\n" : "};\n";
                             local_script = join_str(local_script, format);
                         }
                     }
@@ -1699,7 +1731,7 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                 break;
             
             case FreeLineText:
-                ErrorCode err_cd = analyze_free_line_text(fline, out_file, summary.debug, import_dict, summary.identifier_type, summary.name, *params);
+                ErrorCode err_cd = analyze_free_line_text(fline, out_file, summary.debug, import_dict, summary.identifier_type, summary.name, *params, local_params);
                 if (err_cd != NO_ERROR) {
                     syslogger(filename, fline_number, err_cd);
                     goto cleanup;
@@ -1736,8 +1768,10 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                     fputs(step_s_temp, out_file);
                     free(step_s_temp);
                 }
-            } else {
-                fputs("\n", out_file);
+            }
+            if (local_script != NULL) {
+                fputs(local_script, out_file);
+                free(local_script);
             }
         }
     }
