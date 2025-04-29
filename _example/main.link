@@ -22,7 +22,7 @@ multi-line comment
 @local(A1, "Hello")
 @local(AB1, -1.23)
 @local(ABC1, ["A", "B", "C"])
-// @local(ABCD1, [AB, 2.2, 3.3])
+@local(ABCD1, [AB, 2.2, 3.3])
 // @local(ABCDE1, ABCD)
 @local(Grid11, [[1, 2, 3], [1, 2, 3], [1, 2, 3]])
 // @local(Grid21, [ABCD, ABCD, ABCD])

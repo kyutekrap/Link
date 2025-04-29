@@ -38,6 +38,7 @@ void main() {
 	static char A1[] = "Hello";
 	static double AB1 = -1.23;
 	static char *ABC1[3] = {"A", "B", "C"};
+	static double ABCD1[3] = {AB, 2.2, 3.3};
 	static int Grid11[3][3] = {
 		{1, 2, 3},
 		{1, 2, 3},

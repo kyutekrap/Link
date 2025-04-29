@@ -1344,11 +1344,21 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                             }
                                         }
                                     } else {
-                                        int *_count = int_map_get((property_obj.property_type == Global) ? *paramSize : local_paramSize, token);
+                                        int *_count = int_map_get(*paramSize, token);
+                                        if (_count == NULL) {
+                                            if (property_obj.property_type == Local) {
+                                                _count = int_map_get(local_paramSize, token);
+                                            }
+                                        }
                                         if (_count != NULL) {
                                             count = *_count;
                                         }
-                                        int *temp = int_map_get((property_obj.property_type == Global) ? *params : local_params, token);
+                                        int *temp = int_map_get(*params, token);
+                                        if (temp == NULL) {
+                                            if (property_obj.property_type == Local) {
+                                                temp = int_map_get(local_params, token);
+                                            }
+                                        }
                                         if (temp == NULL) {
                                             clear_str_list(&mlist);
                                             clear_int_list(&tokens);
