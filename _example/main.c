@@ -3,31 +3,31 @@
 #include <stdio.h>
 #include <time.h>
 
-const char A[] = "Hello";
-const double AB = -1.23;
-const char *ABC[3] = {"A", "B", "C"};
-const double ABCD[3] = {AB, 2.2, 3.3};
-const double ABCDE[3];
+static char A[] = "Hello";
+static double AB = -1.23;
+static char *ABC[3] = {"A", "B", "C"};
+static double ABCD[3] = {AB, 2.2, 3.3};
+static double ABCDE[3];
 memcpy(ABCDE, ABCD, sizeof(ABCD));
-const int Grid1[3][3] = {
+static int Grid1[3][3] = {
 	{1, 2, 3},
 	{1, 2, 3},
 	{1, 2, 3}
 };
-const double Grid2[3][3] = {
+static double Grid2[3][3] = {
 	{ABCD},
 	{ABCD},
 	{ABCD}
 };
-const double Grid3[3][3] = {
+static double Grid3[3][3] = {
 	{1.1, 2.2, 3.3},
 	{ABCD},
 	{ABCD}
 };
-const double ABCDE1[3];
+static double ABCDE1[3];
 memcpy(ABCDE1, ABCD, sizeof(ABCD));
 
-const int Data1[9] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+static int Data1[9] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
 
 void src_test2() {
 	clock_t __step_start__, __step_end__; __step_start__ = clock();

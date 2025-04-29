@@ -125,24 +125,22 @@ YesNo in_int_list(IntList int_list, int checking_value) {
     return N;
 }
 
-StrList clear_str_list(StrList mlist) {
-    for (int j = 0; j < mlist.count; j++) {
-        free(mlist.data[j]);
+void clear_str_list(StrList *mlist) {
+    for (int j = 0; j < mlist->count; j++) {
+        free(mlist->data[j]);
     }
-    free(mlist.data);
-    mlist.data = NULL;
-    mlist.count = 0;
-    return mlist;
+    free(mlist->data);
+    mlist->data = NULL;
+    mlist->count = 0;
 }
 
-IntList clear_int_list(IntList mlist) {
-    for (int j = 0; j < mlist.count; j++) {
-        free(mlist.data[j]);
+void clear_int_list(IntList *mlist) {
+    for (int j = 0; j < mlist->count; j++) {
+        free(mlist->data[j]);
     }
-    free(mlist.data);
-    mlist.data = NULL;
-    mlist.count = 0;
-    return mlist;
+    free(mlist->data);
+    mlist->data = NULL;
+    mlist->count = 0;
 }
 
 char *join_str_list(StrList mlist) {
@@ -274,11 +272,10 @@ char *str_map_get(StrMap str_map, char *key) {
     return NULL;
 }
 
-StrMap clear_str_map(StrMap str_map) {
-    clear_str_list(str_map.keys);
-    clear_str_list(str_map.values);
-    str_map.count = 0;
-    return str_map;
+void clear_str_map(StrMap *str_map) {
+    clear_str_list(&str_map->keys);
+    clear_str_list(&str_map->values);
+    str_map->count = 0;
 }
 
 IntMap int_map_set(IntMap map, char *key, int value) {
@@ -313,11 +310,10 @@ int *int_map_get(IntMap map, char *key) {
     return NULL;
 }
 
-IntMap clear_int_map(IntMap map) {
-    clear_str_list(map.keys);
-    clear_int_list(map.values);
-    map.count = 0;
-    return map;
+void clear_int_map(IntMap *map) {
+    clear_str_list(&map->keys);
+    clear_int_list(&map->values);
+    map->count = 0;
 }
 
 // ===== MAP UTILS (END)

@@ -1096,7 +1096,7 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                     StrList mlist = str2list(property_obj.property_value);
                     char *vname = trim(mlist.data[0]);
                     if (int_map_get(*params, vname) != NULL) {
-                        clear_str_list(mlist);
+                        clear_str_list(&mlist);
                         syslogger(filename, fline_number, PREDEFINED_VARIABLE);
                         goto cleanup;
                     }
@@ -1105,7 +1105,7 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                         StrList mlist = str2list(property_obj.property_value);
                         char *vname = trim(mlist.data[0]);
                         if (int_map_get(local_params, vname) != NULL) {
-                            clear_str_list(mlist);
+                            clear_str_list(&mlist);
                             syslogger(filename, fline_number, PREDEFINED_VARIABLE);
                             goto cleanup;
                         }
@@ -1115,11 +1115,11 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                     if (dtype == String)
                     {
                         if (property_obj.property_type == Global) {
-                            char *buffer = println(filename, fline_number, "const char %s[] = %s;\n", vname, mlist.data[1]);
+                            char *buffer = println(filename, fline_number, "static char %s[] = %s;\n", vname, mlist.data[1]);
                             global_script = join_str(global_script, buffer);
                             free(buffer);
                         } else {
-                            char *buffer = println(filename, fline_number, "const char %s[] = %s;\n", vname, mlist.data[1]);
+                            char *buffer = println(filename, fline_number, "static char %s[] = %s;\n", vname, mlist.data[1]);
                             local_script = join_str(local_script, buffer);
                             free(buffer);
                         }
@@ -1129,11 +1129,11 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                     else if (dtype == Integer)
                     {
                         if (property_obj.property_type == Global) {
-                            char *buffer = println(filename, fline_number, "const int %s = %s;\n", vname, mlist.data[1]);
+                            char *buffer = println(filename, fline_number, "static int %s = %s;\n", vname, mlist.data[1]);
                             global_script = join_str(global_script, buffer);
                             free(buffer);
                         } else {
-                            char *buffer = println(filename, fline_number, "const int %s = %s;\n", vname, mlist.data[1]);
+                            char *buffer = println(filename, fline_number, "static int %s = %s;\n", vname, mlist.data[1]);
                             local_script = join_str(local_script, buffer);
                             free(buffer);
                         }
@@ -1143,11 +1143,11 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                     else if (dtype == Double)
                     {
                         if (property_obj.property_type == Global) {
-                            char *buffer = println(filename, fline_number, "const double %s = %s;\n", vname, mlist.data[1]);
+                            char *buffer = println(filename, fline_number, "static double %s = %s;\n", vname, mlist.data[1]);
                             global_script = join_str(global_script, buffer);
                             free(buffer);
                         } else {
-                            char *buffer = println(filename, fline_number, "const double %s = %s;\n", vname, mlist.data[1]);
+                            char *buffer = println(filename, fline_number, "static double %s = %s;\n", vname, mlist.data[1]);
                             local_script = join_str(local_script, buffer);
                             free(buffer);
                         }
@@ -1160,7 +1160,7 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                         char *data = substr(data_trimmed, 1, strlen(data_trimmed)-2);
                         IntList tokens = char_index_ignore(data, ',');
                         if (tokens.count == 0) {
-                            clear_str_list(mlist);
+                            clear_str_list(&mlist);
                             syslogger(filename, fline_number, UNKNOWN_DATATYPE);
                             goto cleanup;
                         }
@@ -1173,11 +1173,11 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                 char *token = trim(substr(data, i, *tokens.data[i]));
                                 if (is_integer(token) == Y) {
                                     if (property_obj.property_type == Global) {
-                                        char *buffer = println(filename, fline_number, "const int %s[%d] = {%s", vname, tokens.count + 1, token);
+                                        char *buffer = println(filename, fline_number, "static int %s[%d] = {%s", vname, tokens.count + 1, token);
                                         global_script = join_str(global_script, buffer);
                                         free(buffer);
                                     } else {
-                                        char *buffer = println(filename, fline_number, "const int %s[%d] = {%s", vname, tokens.count + 1, token);
+                                        char *buffer = println(filename, fline_number, "static int %s[%d] = {%s", vname, tokens.count + 1, token);
                                         local_script = join_str(local_script, buffer);
                                         free(buffer);
                                     }
@@ -1187,11 +1187,11 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                 } else if (is_double(token) == Y) {
                                     type = Double;
                                     if (property_obj.property_type == Global) {
-                                        char *buffer = println(filename, fline_number, "const double %s[%d] = {%s", vname, tokens.count + 1, token);
+                                        char *buffer = println(filename, fline_number, "static double %s[%d] = {%s", vname, tokens.count + 1, token);
                                         global_script = join_str(global_script, buffer);
                                         free(buffer);
                                     } else {
-                                        char *buffer = println(filename, fline_number, "const double %s[%d] = {%s", vname, tokens.count + 1, token);
+                                        char *buffer = println(filename, fline_number, "static double %s[%d] = {%s", vname, tokens.count + 1, token);
                                         local_script = join_str(local_script, buffer);
                                         free(buffer);
                                     }
@@ -1203,11 +1203,11 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                     if (temp > 1 && token[0] == '"' && token[temp-1] == '"') {
                                         type = String;
                                         if (property_obj.property_type == Global) {
-                                            char *buffer = println(filename, fline_number, "const char *%s[%d] = {%s", vname, tokens.count + 1, token);
+                                            char *buffer = println(filename, fline_number, "static char *%s[%d] = {%s", vname, tokens.count + 1, token);
                                             global_script = join_str(global_script, buffer);
                                             free(buffer);
                                         } else {
-                                            char *buffer = println(filename, fline_number, "const char *%s[%d] = {%s", vname, tokens.count + 1, token);
+                                            char *buffer = println(filename, fline_number, "static char *%s[%d] = {%s", vname, tokens.count + 1, token);
                                             local_script = join_str(local_script, buffer);
                                             free(buffer);
                                         }
@@ -1219,9 +1219,9 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                         char *_token = substr(token, 1, temp-2);
                                         IntList elements = char_index(_token, ',');
                                         if (elements.count == 0) {
-                                            clear_str_list(mlist);
-                                            clear_int_list(tokens);
-                                            clear_int_list(elements);
+                                            clear_str_list(&mlist);
+                                            clear_int_list(&tokens);
+                                            clear_int_list(&elements);
                                             syslogger(filename, fline_number, UNKNOWN_DATATYPE);
                                             goto cleanup;
                                         }
@@ -1231,11 +1231,11 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                                 char *element = trim(substr(_token, 0, *elements.data[j]));
                                                 if (is_integer(element) == Y) {
                                                     if (property_obj.property_type == Global) {
-                                                        char *buffer = println(filename, fline_number, "const int %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, element);
+                                                        char *buffer = println(filename, fline_number, "static int %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, element);
                                                         global_script = join_str(global_script, buffer);
                                                         free(buffer);
                                                     } else {
-                                                        char *buffer = println(filename, fline_number, "const int %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, element);
+                                                        char *buffer = println(filename, fline_number, "static int %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, element);
                                                         local_script = join_str(local_script, buffer);
                                                         free(buffer);
                                                     }
@@ -1246,11 +1246,11 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                                 } else if (is_double(element) == Y) {
                                                     type = Double;
                                                     if (property_obj.property_type == Global) {
-                                                        char *buffer = println(filename, fline_number, "const double %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, element);
+                                                        char *buffer = println(filename, fline_number, "static double %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, element);
                                                         global_script = join_str(global_script, buffer);
                                                         free(buffer);
                                                     } else {
-                                                        char *buffer = println(filename, fline_number, "const double %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, element);
+                                                        char *buffer = println(filename, fline_number, "static double %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, element);
                                                         local_script = join_str(local_script, buffer);
                                                         free(buffer);
                                                     }
@@ -1259,24 +1259,24 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                                     *paramSize = int_map_set(*paramSize, vname, tokens.count + 1);
                                                     *paramInnerSize = int_map_set(*paramInnerSize, vname, count);
                                                 } else {
-                                                    clear_str_list(mlist);
-                                                    clear_int_list(tokens);
-                                                    clear_int_list(elements);
+                                                    clear_str_list(&mlist);
+                                                    clear_int_list(&tokens);
+                                                    clear_int_list(&elements);
                                                     syslogger(filename, fline_number, UNKNOWN_DATATYPE);
                                                     goto cleanup;
                                                 }
                                             } else if (j < elements.count) {
                                                 char *element = trim(substr(_token, *elements.data[j-1] + 1, *elements.data[j] - *elements.data[j-1] - 1));
                                                 if (type == Integer && is_integer(element) == N) {
-                                                    clear_str_list(mlist);
-                                                    clear_int_list(tokens);
-                                                    clear_int_list(elements);
+                                                    clear_str_list(&mlist);
+                                                    clear_int_list(&tokens);
+                                                    clear_int_list(&elements);
                                                     syslogger(filename, fline_number, UNMATCHED_DATATYPE);
                                                     goto cleanup;
                                                 } else if (type == Double && is_double(element) == N) {
-                                                    clear_str_list(mlist);
-                                                    clear_int_list(tokens);
-                                                    clear_int_list(elements);
+                                                    clear_str_list(&mlist);
+                                                    clear_int_list(&tokens);
+                                                    clear_int_list(&elements);
                                                     syslogger(filename, fline_number, UNMATCHED_DATATYPE);
                                                     goto cleanup;
                                                 } else {
@@ -1293,15 +1293,15 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                             } else {
                                                 char *element = trim(substr(_token, *elements.data[j-1] + 1, strlen(_token) - *elements.data[j-1] - 1));
                                                 if (type == Integer && is_integer(element) == N) {
-                                                    clear_str_list(mlist);
-                                                    clear_int_list(tokens);
-                                                    clear_int_list(elements);
+                                                    clear_str_list(&mlist);
+                                                    clear_int_list(&tokens);
+                                                    clear_int_list(&elements);
                                                     syslogger(filename, fline_number, UNMATCHED_DATATYPE);
                                                     goto cleanup;
                                                 } else if (type == Double && is_double(element) == N) {
-                                                    clear_str_list(mlist);
-                                                    clear_int_list(tokens);
-                                                    clear_int_list(elements);
+                                                    clear_str_list(&mlist);
+                                                    clear_int_list(&tokens);
+                                                    clear_int_list(&elements);
                                                     syslogger(filename, fline_number, UNMATCHED_DATATYPE);
                                                     goto cleanup;
                                                 } else {
@@ -1324,18 +1324,18 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                         }
                                         int *temp = int_map_get(*params, token);
                                         if (temp == NULL) {
-                                            clear_str_list(mlist);
-                                            clear_int_list(tokens);
+                                            clear_str_list(&mlist);
+                                            clear_int_list(&tokens);
                                             syslogger(filename, fline_number, UNDEFINED_VARIABLE);
                                             goto cleanup;
                                         } else if (*temp == String) {
                                             type = String;
                                             if (property_obj.property_type == Global) {
-                                                char *buffer = println(filename, fline_number, "const char *%s[%d] = {%s", vname, tokens.count + 1, token);
+                                                char *buffer = println(filename, fline_number, "static char *%s[%d] = {%s", vname, tokens.count + 1, token);
                                                 global_script = join_str(global_script, buffer);
                                                 free(buffer);
                                             } else {
-                                                char *buffer = println(filename, fline_number, "const char *%s[%d] = {%s", vname, tokens.count + 1, token);
+                                                char *buffer = println(filename, fline_number, "static char *%s[%d] = {%s", vname, tokens.count + 1, token);
                                                 local_script = join_str(local_script, buffer);
                                                 free(buffer);
                                             }
@@ -1344,11 +1344,11 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                             *paramSize = int_map_set(*paramSize, vname, tokens.count + 1);
                                         } else if (*temp == Integer) {
                                             if (property_obj.property_type == Global) {
-                                                char *buffer = println(filename, fline_number, "const int %s[%d] = {%s", vname, tokens.count + 1, token);
+                                                char *buffer = println(filename, fline_number, "static int %s[%d] = {%s", vname, tokens.count + 1, token);
                                                 global_script = join_str(global_script, buffer);
                                                 free(buffer);
                                             } else {
-                                                char *buffer = println(filename, fline_number, "const int %s[%d] = {%s", vname, tokens.count + 1, token);
+                                                char *buffer = println(filename, fline_number, "static int %s[%d] = {%s", vname, tokens.count + 1, token);
                                                 local_script = join_str(local_script, buffer);
                                                 free(buffer);
                                             }
@@ -1358,11 +1358,11 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                         } else if (*temp == Double) {
                                             type = Double;
                                             if (property_obj.property_type == Global) {
-                                                char *buffer = println(filename, fline_number, "const double %s[%d] = {%s", vname, tokens.count + 1, token);
+                                                char *buffer = println(filename, fline_number, "static double %s[%d] = {%s", vname, tokens.count + 1, token);
                                                 global_script = join_str(global_script, buffer);
                                                 free(buffer);
                                             } else {
-                                                char *buffer = println(filename, fline_number, "const double %s[%d] = {%s", vname, tokens.count + 1, token);
+                                                char *buffer = println(filename, fline_number, "static double %s[%d] = {%s", vname, tokens.count + 1, token);
                                                 local_script = join_str(local_script, buffer);
                                                 free(buffer);
                                             }
@@ -1373,11 +1373,11 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                             is_grid = Y;
                                             type = IntegerList;
                                             if (property_obj.property_type == Global) {
-                                                char *buffer = println(filename, fline_number, "const int %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, token);
+                                                char *buffer = println(filename, fline_number, "static int %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, token);
                                                 global_script = join_str(global_script, buffer);
                                                 free(buffer);
                                             } else {
-                                                char *buffer = println(filename, fline_number, "const int %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, token);
+                                                char *buffer = println(filename, fline_number, "static int %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, token);
                                                 local_script = join_str(local_script, buffer);
                                                 free(buffer);
                                             }
@@ -1388,11 +1388,11 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                             is_grid = Y;
                                             type = DoubleList;
                                             if (property_obj.property_type == Global) {
-                                                char *buffer = println(filename, fline_number, "const double %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, token);
+                                                char *buffer = println(filename, fline_number, "static double %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, token);
                                                 global_script = join_str(global_script, buffer);
                                                 free(buffer);
                                             } else {
-                                                char *buffer = println(filename, fline_number, "const double %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, token);
+                                                char *buffer = println(filename, fline_number, "static double %s[%d][%d] = {\n\t{%s", vname, tokens.count + 1, count, token);
                                                 local_script = join_str(local_script, buffer);
                                                 free(buffer);
                                             }
@@ -1400,8 +1400,8 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                             *params = int_map_set(*params, vname, DoubleGrid);
                                             *paramSize = int_map_set(*paramSize, vname, tokens.count + 1);
                                         } else {
-                                            clear_str_list(mlist);
-                                            clear_int_list(tokens);
+                                            clear_str_list(&mlist);
+                                            clear_int_list(&tokens);
                                             syslogger(filename, fline_number, UNKNOWN_DATATYPE);
                                             goto cleanup;
                                         }
@@ -1414,8 +1414,8 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                 if (is_grid == N) {
                                     if (type == Integer) {
                                         if (is_integer(token) == N) {
-                                            clear_str_list(mlist);
-                                            clear_int_list(tokens);
+                                            clear_str_list(&mlist);
+                                            clear_int_list(&tokens);
                                             syslogger(filename, fline_number, UNMATCHED_DATATYPE);
                                             goto cleanup;
                                         } else {
@@ -1431,8 +1431,8 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                         }
                                     } else if (type == Double) {
                                         if (is_double(token) == N) {
-                                            clear_str_list(mlist);
-                                            clear_int_list(tokens);
+                                            clear_str_list(&mlist);
+                                            clear_int_list(&tokens);
                                             syslogger(filename, fline_number, UNMATCHED_DATATYPE);
                                             goto cleanup;
                                         } else {
@@ -1449,8 +1449,8 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                     } else {
                                         int temp = strlen(token);
                                         if (!(temp > 1 && token[0] == '"' && token[temp-1] == '"')) {
-                                            clear_str_list(mlist);
-                                            clear_int_list(tokens);
+                                            clear_str_list(&mlist);
+                                            clear_int_list(&tokens);
                                             syslogger(filename, fline_number, UNMATCHED_DATATYPE);
                                             goto cleanup;
                                         } else {
@@ -1471,16 +1471,16 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                         char *_token = substr(token, 1, temp-2);
                                         IntList elements = char_index(_token, ',');
                                         if (elements.count == 0) {
-                                            clear_str_list(mlist);
-                                            clear_int_list(tokens);
-                                            clear_int_list(elements);
+                                            clear_str_list(&mlist);
+                                            clear_int_list(&tokens);
+                                            clear_int_list(&elements);
                                             syslogger(filename, fline_number, UNKNOWN_DATATYPE);
                                             goto cleanup;
                                         }
                                         if (count != elements.count + 1) {
-                                            clear_str_list(mlist);
-                                            clear_int_list(tokens);
-                                            clear_int_list(elements);
+                                            clear_str_list(&mlist);
+                                            clear_int_list(&tokens);
+                                            clear_int_list(&elements);
                                             syslogger(filename, fline_number, UNMATCHED_ELEMENTS);
                                             goto cleanup;
                                         }
@@ -1489,9 +1489,9 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                                 char *element = trim(substr(_token, 0, *elements.data[j]));
                                                 if (type == Integer) {
                                                     if (is_integer(element) == N) {
-                                                        clear_str_list(mlist);
-                                                        clear_int_list(tokens);
-                                                        clear_int_list(elements);
+                                                        clear_str_list(&mlist);
+                                                        clear_int_list(&tokens);
+                                                        clear_int_list(&elements);
                                                         syslogger(filename, fline_number, UNKNOWN_DATATYPE);
                                                         goto cleanup;
                                                     } else {
@@ -1507,9 +1507,9 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                                     }
                                                 } else if (type == Double) {
                                                     if (is_double(element) == N) {
-                                                        clear_str_list(mlist);
-                                                        clear_int_list(tokens);
-                                                        clear_int_list(elements);
+                                                        clear_str_list(&mlist);
+                                                        clear_int_list(&tokens);
+                                                        clear_int_list(&elements);
                                                         syslogger(filename, fline_number, UNKNOWN_DATATYPE);
                                                         goto cleanup;
                                                     } else {
@@ -1529,9 +1529,9 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                                     : trim(substr(_token, *elements.data[j-1] + 1, strlen(_token) - *elements.data[j-1] - 1));
                                                 if (type == Integer) {
                                                     if (is_integer(element) == N) {
-                                                        clear_str_list(mlist);
-                                                        clear_int_list(tokens);
-                                                        clear_int_list(elements);
+                                                        clear_str_list(&mlist);
+                                                        clear_int_list(&tokens);
+                                                        clear_int_list(&elements);
                                                         syslogger(filename, fline_number, UNKNOWN_DATATYPE);
                                                         goto cleanup;
                                                     } else {
@@ -1547,9 +1547,9 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                                     }
                                                 } else if (type == Double) {
                                                     if (is_double(element) == N) {
-                                                        clear_str_list(mlist);
-                                                        clear_int_list(tokens);
-                                                        clear_int_list(elements);
+                                                        clear_str_list(&mlist);
+                                                        clear_int_list(&tokens);
+                                                        clear_int_list(&elements);
                                                         syslogger(filename, fline_number, UNKNOWN_DATATYPE);
                                                         goto cleanup;
                                                     } else {
@@ -1568,25 +1568,25 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                         }
                                     } else {
                                         if (count != *int_map_get(*paramSize, token)) {
-                                            clear_str_list(mlist);
-                                            clear_int_list(tokens);
+                                            clear_str_list(&mlist);
+                                            clear_int_list(&tokens);
                                             syslogger(filename, fline_number, UNMATCHED_ELEMENTS);
                                             goto cleanup;
                                         }
                                         int *_temp = int_map_get(*params, token);
                                         if (_temp == NULL) {
-                                            clear_str_list(mlist);
-                                            clear_int_list(tokens);
+                                            clear_str_list(&mlist);
+                                            clear_int_list(&tokens);
                                             syslogger(filename, fline_number, UNDEFINED_VARIABLE);
                                             goto cleanup;
                                         } else if (type == Integer && *_temp != IntegerList) {
-                                            clear_str_list(mlist);
-                                            clear_int_list(tokens);
+                                            clear_str_list(&mlist);
+                                            clear_int_list(&tokens);
                                             syslogger(filename, fline_number, UNMATCHED_DATATYPE);
                                             goto cleanup;
                                         } else if (type == Double && *_temp != DoubleList) {
-                                            clear_str_list(mlist);
-                                            clear_int_list(tokens);
+                                            clear_str_list(&mlist);
+                                            clear_int_list(&tokens);
                                             syslogger(filename, fline_number, UNMATCHED_DATATYPE);
                                             goto cleanup;
                                         } else {
@@ -1631,65 +1631,65 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                         }
 
                         if (*type == String) {
-                            int line1_len = snprintf(NULL, 0, "const char *%s = strdup(%s);\n", vname, mlist.data[1]);
+                            int line1_len = snprintf(NULL, 0, "static char *%s = strdup(%s);\n", vname, mlist.data[1]);
                             char *buffer1 = malloc(line1_len + 1);
-                            sprintf(buffer1, "const char *%s = strdup(%s);\n", vname, mlist.data[1]);
+                            sprintf(buffer1, "static char *%s = strdup(%s);\n", vname, mlist.data[1]);
                             global_script = join_str(global_script, buffer1);
                             free(buffer1);
                         }
                         else if (*type == Integer)
                         {
-                            int line1_len = snprintf(NULL, 0, "const int %s = %s;\n", vname, mlist.data[1]);
+                            int line1_len = snprintf(NULL, 0, "static int %s = %s;\n", vname, mlist.data[1]);
                             char *buffer1 = malloc(line1_len + 1);
-                            sprintf(buffer1, "const int %s = %s;\n", vname, mlist.data[1]);
+                            sprintf(buffer1, "static int %s = %s;\n", vname, mlist.data[1]);
                             global_script = join_str(global_script, buffer1);
                             free(buffer1);
                         }
                         else if (*type == Double) {
-                            int line1_len = snprintf(NULL, 0, "const double %s = %s;\n", vname, mlist.data[1]);
+                            int line1_len = snprintf(NULL, 0, "static double %s = %s;\n", vname, mlist.data[1]);
                             char *buffer1 = malloc(line1_len + 1);
-                            sprintf(buffer1, "const double %s = %s;\n", vname, mlist.data[1]);
+                            sprintf(buffer1, "static double %s = %s;\n", vname, mlist.data[1]);
                             global_script = join_str(global_script, buffer1);
                             free(buffer1);
                         } else if (*type == StringList) {
                             int *size = int_map_get(*paramSize, mlist.data[1]);
-                            int line1_len = snprintf(NULL, 0, "const char *%s[%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, vname, mlist.data[1], mlist.data[1]);
+                            int line1_len = snprintf(NULL, 0, "static char *%s[%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, vname, mlist.data[1], mlist.data[1]);
                             char *buffer1 = malloc(line1_len + 1);
-                            sprintf(buffer1, "const char *%s[%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, vname, mlist.data[1], mlist.data[1]);
+                            sprintf(buffer1, "static char *%s[%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, vname, mlist.data[1], mlist.data[1]);
                             global_script = join_str(global_script, buffer1);
                             free(buffer1);
                         } else if (*type == IntegerList) {
                             int *size = int_map_get(*paramSize, mlist.data[1]);
-                            int line1_len = snprintf(NULL, 0, "const int %s[%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, vname, mlist.data[1], mlist.data[1]);
+                            int line1_len = snprintf(NULL, 0, "static int %s[%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, vname, mlist.data[1], mlist.data[1]);
                             char *buffer1 = malloc(line1_len + 1);
-                            sprintf(buffer1, "const int %s[%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, vname, mlist.data[1], mlist.data[1]);
+                            sprintf(buffer1, "static int %s[%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, vname, mlist.data[1], mlist.data[1]);
                             global_script = join_str(global_script, buffer1);
                             free(buffer1);
                         } else if (*type == DoubleList) {
                             int *size = int_map_get(*paramSize, mlist.data[1]);
-                            int line1_len = snprintf(NULL, 0, "const double %s[%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, vname, mlist.data[1], mlist.data[1]);
+                            int line1_len = snprintf(NULL, 0, "static double %s[%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, vname, mlist.data[1], mlist.data[1]);
                             char *buffer1 = malloc(line1_len + 1);
-                            sprintf(buffer1, "const double %s[%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, vname, mlist.data[1], mlist.data[1]);
+                            sprintf(buffer1, "static double %s[%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, vname, mlist.data[1], mlist.data[1]);
                             global_script = join_str(global_script, buffer1);
                             free(buffer1);
                         } else if (*type == IntegerGrid) {
                             int *size = int_map_get(*paramSize, mlist.data[1]);
                             int *innerSize = int_map_get(*paramInnerSize, mlist.data[1]);
-                            int line1_len = snprintf(NULL, 0, "const int %s[%d][%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, *innerSize, vname, mlist.data[1], mlist.data[1]);
+                            int line1_len = snprintf(NULL, 0, "static int %s[%d][%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, *innerSize, vname, mlist.data[1], mlist.data[1]);
                             char *buffer1 = malloc(line1_len + 1);
-                            sprintf(buffer1, "const int %s[%d][%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, *innerSize, vname, mlist.data[1], mlist.data[1]);
+                            sprintf(buffer1, "static int %s[%d][%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, *innerSize, vname, mlist.data[1], mlist.data[1]);
                             global_script = join_str(global_script, buffer1);
                             free(buffer1);
                         } else if (*type == DoubleGrid) {
                             int *size = int_map_get(*paramSize, mlist.data[1]);
                             int *innerSize = int_map_get(*paramInnerSize, mlist.data[1]);
-                            int line1_len = snprintf(NULL, 0, "const double %s[%d][%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, *innerSize, vname, mlist.data[1], mlist.data[1]);
+                            int line1_len = snprintf(NULL, 0, "static double %s[%d][%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, *innerSize, vname, mlist.data[1], mlist.data[1]);
                             char *buffer1 = malloc(line1_len + 1);
-                            sprintf(buffer1, "const double %s[%d][%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, *innerSize, vname, mlist.data[1], mlist.data[1]);
+                            sprintf(buffer1, "static double %s[%d][%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, *innerSize, vname, mlist.data[1], mlist.data[1]);
                             global_script = join_str(global_script, buffer1);
                             free(buffer1);
                         }
-                        clear_str_list(mlist);
+                        clear_str_list(&mlist);
                     }
                 }
                 else if (property_obj.property_type == UnknownProperty) {
@@ -1754,10 +1754,10 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
     cleanup:
         fclose(in_file);
         fclose(out_file);    
-        clear_str_map(import_dict);
-        clear_int_map(local_params);
-        clear_int_map(local_paramSize);
-        clear_int_map(local_paramInnerSize);
+        clear_str_map(&import_dict);
+        clear_int_map(&local_params);
+        clear_int_map(&local_paramSize);
+        clear_int_map(&local_paramInnerSize);
 
     return summary;
 }
@@ -1776,7 +1776,7 @@ void transpiler(char *filename) {
     TranspilerSummary summary = transpiler_main(filename, cwd, N, &params, &paramSize, &paramInnerSize);
     free(cwd);
     free(summary.name);
-    summary.imports = clear_str_list(summary.imports);
+    clear_str_list(&summary.imports);
 }
 
 // ===== PROVIDER (END)

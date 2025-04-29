@@ -51,16 +51,16 @@ IntList append_int_list(IntList int_list, int new_value);
 StrList append_str_list(StrList str_list, char *new_value);
 YesNo in_str_list(StrList str_list, char *checking_value);
 YesNo in_int_list(IntList int_list, int checking_value);
-StrList clear_str_list(StrList mlist);
-IntList clear_int_list(IntList mlist);
+void clear_str_list(StrList *mlist);
+void clear_int_list(IntList *mlist);
 char *join_str_list(StrList mlist);
 char *str_replace(char *str, char from_char, char to_char);
 StrMap str_map_set(StrMap str_map, char *key, char *value);
 char *str_map_get(StrMap str_map, char *key);
-StrMap clear_str_map(StrMap str_map);
+void clear_str_map(StrMap *str_map);
 IntMap int_map_set(IntMap map, char *key, int value);
 int *int_map_get(IntMap map, char *key);
-IntMap clear_int_map(IntMap map);
+void clear_int_map(IntMap *map);
 StrList str2list(char *str);
 
 #endif

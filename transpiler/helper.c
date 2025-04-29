@@ -349,7 +349,7 @@ Property parse_property(char *fline) {
 
     int offset = strlen(fline) - 1;
     if (fline[offset] != ')') {
-        clear_int_list(sValue);
+        clear_int_list(&sValue);
         return property_obj;
     }
 
@@ -364,7 +364,7 @@ Property parse_property(char *fline) {
         property_obj.property_type = Local;
     else {
         free(property_type);
-        clear_int_list(sValue);
+        clear_int_list(&sValue);
         return property_obj;
     }
     free(property_type);
@@ -372,7 +372,7 @@ Property parse_property(char *fline) {
     int pos = sValue.data[0][0] + 1;
     int cnt = offset - pos;
     property_obj.property_value = substr(fline, pos, cnt);
-    clear_int_list(sValue);
+    clear_int_list(&sValue);
 
     return property_obj;
 }
