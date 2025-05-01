@@ -39,14 +39,27 @@ void main() {
 	static double AB1 = -1.23;
 	static char *ABC1[3] = {"A", "B", "C"};
 	static double ABCD1[3] = {AB, 2.2, 3.3};
+	static double ABCDE1[3];
+	memcpy(ABCDE1, ABCD, sizeof(ABCD));
 	static int Grid11[3][3] = {
 		{1, 2, 3},
 		{1, 2, 3},
 		{1, 2, 3}
 	};
+	static double Grid21[3][3] = {
+		{ABCD},
+		{ABCD},
+		{ABCD}
+	};
+	static double Grid31[3][3] = {
+		{1.1, 2.2, 3.3},
+		{ABCD},
+		{ABCD}
+	};
 	if (strcmp(A, strdup("Hello")) == 0) { src_test2(); }
 	if (AB > 0) { src_test2(); }
-	else if (AB < 100) { __flow_end__ = clock(); printf("[Info]: %.2fms elapsed (main)", ((double)(__flow_end__-__flow_start__)/CLOCKS_PER_SEC) * 1000); return; }
+	else if (AB < 100) { neutrocon_fx(&Grid31); }
+	neutrocon_fx(Grid31);
 	while (A > 0) {
 		src_test2();
 	}

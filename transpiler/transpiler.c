@@ -298,14 +298,15 @@ Function parse_function(char *fline, StrMap imports) {
     }
     else {
         char *sub_to = str_map_get(imports, temp);
-        if (sub_to == NULL)
-            return function;
+        if (sub_to == NULL) {
+            function.function_type = temp;
+        } else {
+            StrList mlist = str2list(function.function_value);
+            if (mlist.count != 0)
+                return function;
 
-        StrList mlist = str2list(function.function_value);
-        if (mlist.count != 0)
-            return function;
-
-        function.function_type = sub_to;
+            function.function_type = sub_to;
+        }
     }
 
     return function;
@@ -575,7 +576,11 @@ ErrorCode analyze_free_line_text(char *fline, FILE *out_file, YesNo debug, StrMa
                 if (new_str == NULL)
                     return C_COMPILE_ERROR;
                 
-                sprintf(new_str, "{ %s(); }\n", temp_func.function_type);
+                if (is_empty(temp_func.function_value) == N) {
+                    sprintf(new_str, "{ %s(&%s); }\n", temp_func.function_type, temp_func.function_value);
+                } else {
+                    sprintf(new_str, "{ %s(); }\n", temp_func.function_type);
+                }
                 temp_func.function_type = new_str;
             }
 
@@ -1608,19 +1613,42 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                                             }
                                         }
                                     } else {
-                                        if (count != *int_map_get((property_obj.property_type == Global) ? *paramSize : local_paramSize, token)) {
+                                        YesNo valid = Y;
+                                        if (count != *int_map_get(*paramSize, token)) {
+                                            if (property_obj.property_type == Local) {
+                                                if (count != *int_map_get(local_paramSize, token)) {
+                                                    valid = N;
+                                                }
+                                            } else {
+                                                valid = N;
+                                            }
+                                        }
+                                        if (valid == N) {
                                             clear_str_list(&mlist);
                                             clear_int_list(&tokens);
                                             syslogger(filename, fline_number, UNMATCHED_ELEMENTS);
                                             goto cleanup;
                                         }
-                                        int *_temp = int_map_get((property_obj.property_type == Global) ? *params : local_params, token);
+                                        
+                                        int *_temp = int_map_get(*params, token);
                                         if (_temp == NULL) {
+                                            if (property_obj.property_type == Local) {
+                                                _temp = int_map_get(local_params, token);
+                                                if (_temp == NULL) {
+                                                    valid = N;
+                                                }
+                                            } else {
+                                                valid = N;
+                                            }
+                                        }
+                                        if (valid == N) {
                                             clear_str_list(&mlist);
                                             clear_int_list(&tokens);
                                             syslogger(filename, fline_number, UNDEFINED_VARIABLE);
                                             goto cleanup;
-                                        } else if (type == Integer && *_temp != IntegerList) {
+                                        }
+
+                                        if (type == Integer && *_temp != IntegerList) {
                                             clear_str_list(&mlist);
                                             clear_int_list(&tokens);
                                             syslogger(filename, fline_number, UNMATCHED_DATATYPE);
@@ -1660,76 +1688,137 @@ TranspilerSummary transpiler_main(char *filename, char *origin, YesNo debug, Int
                     }
                     else
                     {
-                        char *vname = trim(mlist.data[0]);
-                        if (int_map_get(*params, vname) != NULL) {
-                            syslogger(filename, fline_number, PREDEFINED_VARIABLE);
-                            goto cleanup;
-                        }
-
                         int *type = int_map_get(*params, mlist.data[1]);
                         if (type == NULL) {
+                            if (property_obj.property_type == Local) {
+                                type = int_map_get(local_params, mlist.data[1]);
+                            }
+                        }
+                        if (type == NULL) {
+                            clear_str_list(&mlist);
                             syslogger(filename, fline_number, UNKNOWN_DATATYPE);
                             goto cleanup;
                         }
 
                         if (*type == String) {
-                            int line1_len = snprintf(NULL, 0, "static char *%s = strdup(%s);\n", vname, mlist.data[1]);
-                            char *buffer1 = malloc(line1_len + 1);
-                            sprintf(buffer1, "static char *%s = strdup(%s);\n", vname, mlist.data[1]);
-                            global_script = join_str(global_script, buffer1);
-                            free(buffer1);
+                            if (property_obj.property_type == Global) {
+                                char *buffer = println(filename, fline_number, "static char *%s = strdup(%s);\n", vname, mlist.data[1]);
+                                global_script = join_str(global_script, buffer);
+                                free(buffer);
+                            } else {
+                                char *buffer = println(filename, fline_number, "\tstatic char *%s = strdup(%s);\n", vname, mlist.data[1]);
+                                local_script = join_str(local_script, buffer);
+                                free(buffer);
+                            }
                         }
                         else if (*type == Integer)
                         {
-                            int line1_len = snprintf(NULL, 0, "static int %s = %s;\n", vname, mlist.data[1]);
-                            char *buffer1 = malloc(line1_len + 1);
-                            sprintf(buffer1, "static int %s = %s;\n", vname, mlist.data[1]);
-                            global_script = join_str(global_script, buffer1);
-                            free(buffer1);
+                            if (property_obj.property_type == Global) {
+                                char *buffer = println(filename, fline_number, "static int %s = %s;\n", vname, mlist.data[1]);
+                                global_script = join_str(global_script, buffer);
+                                free(buffer);
+                            } else {
+                                char *buffer = println(filename, fline_number, "\tstatic int %s = %s;\n", vname, mlist.data[1]);
+                                local_script = join_str(local_script, buffer);
+                                free(buffer);
+                            }
                         }
                         else if (*type == Double) {
-                            int line1_len = snprintf(NULL, 0, "static double %s = %s;\n", vname, mlist.data[1]);
-                            char *buffer1 = malloc(line1_len + 1);
-                            sprintf(buffer1, "static double %s = %s;\n", vname, mlist.data[1]);
-                            global_script = join_str(global_script, buffer1);
-                            free(buffer1);
-                        } else if (*type == StringList) {
-                            int *size = int_map_get(*paramSize, mlist.data[1]);
-                            int line1_len = snprintf(NULL, 0, "static char *%s[%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, vname, mlist.data[1], mlist.data[1]);
-                            char *buffer1 = malloc(line1_len + 1);
-                            sprintf(buffer1, "static char *%s[%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, vname, mlist.data[1], mlist.data[1]);
-                            global_script = join_str(global_script, buffer1);
-                            free(buffer1);
-                        } else if (*type == IntegerList) {
-                            int *size = int_map_get(*paramSize, mlist.data[1]);
-                            int line1_len = snprintf(NULL, 0, "static int %s[%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, vname, mlist.data[1], mlist.data[1]);
-                            char *buffer1 = malloc(line1_len + 1);
-                            sprintf(buffer1, "static int %s[%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, vname, mlist.data[1], mlist.data[1]);
-                            global_script = join_str(global_script, buffer1);
-                            free(buffer1);
-                        } else if (*type == DoubleList) {
-                            int *size = int_map_get(*paramSize, mlist.data[1]);
-                            int line1_len = snprintf(NULL, 0, "static double %s[%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, vname, mlist.data[1], mlist.data[1]);
-                            char *buffer1 = malloc(line1_len + 1);
-                            sprintf(buffer1, "static double %s[%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, vname, mlist.data[1], mlist.data[1]);
-                            global_script = join_str(global_script, buffer1);
-                            free(buffer1);
-                        } else if (*type == IntegerGrid) {
-                            int *size = int_map_get(*paramSize, mlist.data[1]);
-                            int *innerSize = int_map_get(*paramInnerSize, mlist.data[1]);
-                            int line1_len = snprintf(NULL, 0, "static int %s[%d][%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, *innerSize, vname, mlist.data[1], mlist.data[1]);
-                            char *buffer1 = malloc(line1_len + 1);
-                            sprintf(buffer1, "static int %s[%d][%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, *innerSize, vname, mlist.data[1], mlist.data[1]);
-                            global_script = join_str(global_script, buffer1);
-                            free(buffer1);
-                        } else if (*type == DoubleGrid) {
-                            int *size = int_map_get(*paramSize, mlist.data[1]);
-                            int *innerSize = int_map_get(*paramInnerSize, mlist.data[1]);
-                            int line1_len = snprintf(NULL, 0, "static double %s[%d][%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, *innerSize, vname, mlist.data[1], mlist.data[1]);
-                            char *buffer1 = malloc(line1_len + 1);
-                            sprintf(buffer1, "static double %s[%d][%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, *innerSize, vname, mlist.data[1], mlist.data[1]);
-                            global_script = join_str(global_script, buffer1);
-                            free(buffer1);
+                            if (property_obj.property_type == Global) {
+                                char *buffer = println(filename, fline_number, "static double %s = %s;\n", vname, mlist.data[1]);
+                                global_script = join_str(global_script, buffer);
+                                free(buffer);
+                            } else {
+                                char *buffer = println(filename, fline_number, "\tstatic double %s = %s;\n", vname, mlist.data[1]);
+                                local_script = join_str(local_script, buffer);
+                                free(buffer);
+                            }
+                        }
+                        else if (*type == StringList) {
+                            if (property_obj.property_type == Global) {
+                                int *size = int_map_get(*paramSize, mlist.data[1]);
+                                char *buffer = println(filename, fline_number, "static char *%s[%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, vname, mlist.data[1], mlist.data[1]);
+                                global_script = join_str(global_script, buffer);
+                                free(buffer);
+                            } else {
+                                int *size = int_map_get(local_paramSize, mlist.data[1]);
+                                if (size == NULL) {
+                                    size = int_map_get(*paramSize, mlist.data[1]);
+                                }
+                                char *buffer = println(filename, fline_number, "\tstatic char *%s[%d];\n\tmemcpy(%s, %s, sizeof(%s));\n", vname, *size, vname, mlist.data[1], mlist.data[1]);
+                                local_script = join_str(local_script, buffer);
+                                free(buffer);
+                            }
+                        }
+                        else if (*type == IntegerList) {
+                            if (property_obj.property_type == Global) {
+                                int *size = int_map_get(*paramSize, mlist.data[1]);
+                                char *buffer = println(filename, fline_number, "static int %s[%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, vname, mlist.data[1], mlist.data[1]);
+                                global_script = join_str(global_script, buffer);
+                                free(buffer);
+                            } else {
+                                int *size = int_map_get(local_paramSize, mlist.data[1]);
+                                if (size == NULL) {
+                                    size = int_map_get(*paramSize, mlist.data[1]);
+                                }
+                                char *buffer = println(filename, fline_number, "\tstatic int %s[%d];\n\tmemcpy(%s, %s, sizeof(%s));\n", vname, *size, vname, mlist.data[1], mlist.data[1]);
+                                local_script = join_str(local_script, buffer);
+                                free(buffer);
+                            }
+                        }
+                        else if (*type == DoubleList) {
+                            if (property_obj.property_type == Global) {
+                                int *size = int_map_get(*paramSize, mlist.data[1]);
+                                char *buffer = println(filename, fline_number, "static double %s[%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, vname, mlist.data[1], mlist.data[1]);
+                                global_script = join_str(global_script, buffer);
+                                free(buffer);
+                            } else {
+                                int *size = int_map_get(local_paramSize, mlist.data[1]);
+                                if (size == NULL) {
+                                    size = int_map_get(*paramSize, mlist.data[1]);
+                                }
+                                char *buffer = println(filename, fline_number, "\tstatic double %s[%d];\n\tmemcpy(%s, %s, sizeof(%s));\n", vname, *size, vname, mlist.data[1], mlist.data[1]);
+                                local_script = join_str(local_script, buffer);
+                                free(buffer);
+                            }
+                        }
+                        else if (*type == IntegerGrid) {
+                            if (property_obj.property_type == Global) {
+                                int *size = int_map_get(*paramSize, mlist.data[1]);
+                                int *innerSize = int_map_get(*paramInnerSize, mlist.data[1]);
+                                char *buffer = println(filename, fline_number, "static int %s[%d][%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, *innerSize, vname, mlist.data[1], mlist.data[1]);
+                                global_script = join_str(global_script, buffer);
+                                free(buffer);
+                            } else {
+                                int *size = int_map_get(local_paramSize, mlist.data[1]);
+                                int *innerSize = int_map_get(local_paramInnerSize, mlist.data[1]);
+                                if (size == NULL) {
+                                    size = int_map_get(*paramSize, mlist.data[1]);
+                                    innerSize = int_map_get(*paramInnerSize, mlist.data[1]);
+                                }
+                                char *buffer = println(filename, fline_number, "\tstatic int %s[%d][%d];\n\tmemcpy(%s, %s, sizeof(%s));\n", vname, *size, *innerSize, vname, mlist.data[1], mlist.data[1]);
+                                local_script = join_str(local_script, buffer);
+                                free(buffer);
+                            }
+                        }
+                        else if (*type == DoubleGrid) {
+                            if (property_obj.property_type == Global) {
+                                int *size = int_map_get(*paramSize, mlist.data[1]);
+                                int *innerSize = int_map_get(*paramInnerSize, mlist.data[1]);
+                                char *buffer = println(filename, fline_number, "static double %s[%d][%d];\nmemcpy(%s, %s, sizeof(%s));\n", vname, *size, *innerSize, vname, mlist.data[1], mlist.data[1]);
+                                global_script = join_str(global_script, buffer);
+                                free(buffer);
+                            } else {
+                                int *size = int_map_get(local_paramSize, mlist.data[1]);
+                                int *innerSize = int_map_get(local_paramInnerSize, mlist.data[1]);
+                                if (size == NULL) {
+                                    size = int_map_get(*paramSize, mlist.data[1]);
+                                    innerSize = int_map_get(*paramInnerSize, mlist.data[1]);
+                                }
+                                char *buffer = println(filename, fline_number, "\tstatic double %s[%d][%d];\n\tmemcpy(%s, %s, sizeof(%s));\n", vname, *size, innerSize, vname, mlist.data[1], mlist.data[1]);
+                                local_script = join_str(local_script, buffer);
+                                free(buffer);
+                            }
                         }
                         clear_str_list(&mlist);
                     }
